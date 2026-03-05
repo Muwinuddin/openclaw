@@ -57,6 +57,27 @@ describe("markdownToTelegramHtml", () => {
     expect(res).toBe("<pre><code>const x = 1;\n</code></pre>");
   });
 
+  it("falls back to code fences for malformed pipe tables", () => {
+    const input = [
+      "🎯 Status",
+      "Task | Status | Priority",
+      "------|--------|----------",
+      "Fix routing | ✅ Done | High",
+      "Write post | 🔄 WIP | Med",
+    ].join("\n");
+    const res = markdownToTelegramHtml(input, { tableMode: "code" });
+    expect(res).toContain("<pre><code>| Task        | Status | Priority |");
+    expect(res).toContain("Fix routing | ✅ Done | High");
+    expect(res).toMatch(/Write post\s+\| 🔄 WIP \| Med\s+\|/);
+  });
+
+  it("keeps standard markdown table rendering when parser already detects tables", () => {
+    const input = ["| Task | Status |", "| --- | --- |", "| Fix routing | ✅ Done |"].join("\n");
+    const res = markdownToTelegramHtml(input, { tableMode: "code" });
+    expect(res).toContain("<pre><code>| Task        | Status |");
+    expect(res).not.toContain("| --- | --- |");
+  });
+
   it("properly nests overlapping bold and autolink (#4071)", () => {
     const res = markdownToTelegramHtml("**start https://example.com** end");
     expect(res).toMatch(

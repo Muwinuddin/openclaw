@@ -2,6 +2,7 @@ import type { MarkdownTableMode } from "../config/types.base.js";
 import {
   chunkMarkdownIR,
   markdownToIR,
+  markdownToIRWithMeta,
   type MarkdownLinkSpan,
   type MarkdownIR,
 } from "../markdown/ir.js";
@@ -111,7 +112,8 @@ export function markdownToTelegramHtml(
   markdown: string,
   options: { tableMode?: MarkdownTableMode; wrapFileRefs?: boolean } = {},
 ): string {
-  const ir = markdownToIR(markdown ?? "", {
+  const normalizedMarkdown = normalizeTelegramMarkdownTables(markdown ?? "", options.tableMode);
+  const ir = markdownToIR(normalizedMarkdown, {
     linkify: true,
     enableSpoilers: true,
     headingStyle: "none",
@@ -241,12 +243,87 @@ export function renderTelegramHtmlText(
   return markdownToTelegramHtml(text, { tableMode: options.tableMode });
 }
 
+const TABLE_SEPARATOR_LINE_RE = /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/;
+
+function isLikelyTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("```") || !trimmed.includes("|")) {
+    return false;
+  }
+  return true;
+}
+
+function hasLikelyMarkdownTable(lines: string[]): boolean {
+  for (let i = 0; i < lines.length - 1; i += 1) {
+    if (isLikelyTableRow(lines[i] ?? "") && TABLE_SEPARATOR_LINE_RE.test(lines[i + 1] ?? "")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function wrapLikelyTableBlocksInFence(markdown: string): string {
+  const lines = markdown.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+
+  for (let i = 0; i < lines.length; ) {
+    const line = lines[i] ?? "";
+    if (line.trimStart().startsWith("```")) {
+      inFence = !inFence;
+      out.push(line);
+      i += 1;
+      continue;
+    }
+
+    const next = lines[i + 1] ?? "";
+    if (!inFence && isLikelyTableRow(line) && TABLE_SEPARATOR_LINE_RE.test(next)) {
+      const tableLines = [line, next];
+      let j = i + 2;
+      while (j < lines.length && isLikelyTableRow(lines[j] ?? "")) {
+        tableLines.push(lines[j] ?? "");
+        j += 1;
+      }
+      out.push("```", ...tableLines, "```");
+      i = j;
+      continue;
+    }
+
+    out.push(line);
+    i += 1;
+  }
+
+  return out.join("\n");
+}
+
+function normalizeTelegramMarkdownTables(markdown: string, tableMode?: MarkdownTableMode): string {
+  if (!markdown || !hasLikelyMarkdownTable(markdown.split("\n"))) {
+    return markdown;
+  }
+
+  const parsed = markdownToIRWithMeta(markdown, {
+    linkify: true,
+    enableSpoilers: true,
+    headingStyle: "none",
+    blockquotePrefix: "",
+    tableMode,
+  });
+
+  if (parsed.hasTables) {
+    return markdown;
+  }
+
+  // Telegram doesn't support pipe table markdown; wrap fallback table blocks in code fences.
+  return wrapLikelyTableBlocksInFence(markdown);
+}
+
 export function markdownToTelegramChunks(
   markdown: string,
   limit: number,
   options: { tableMode?: MarkdownTableMode } = {},
 ): TelegramFormattedChunk[] {
-  const ir = markdownToIR(markdown ?? "", {
+  const normalizedMarkdown = normalizeTelegramMarkdownTables(markdown ?? "", options.tableMode);
+  const ir = markdownToIR(normalizedMarkdown, {
     linkify: true,
     enableSpoilers: true,
     headingStyle: "none",
