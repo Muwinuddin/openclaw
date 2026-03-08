@@ -16,7 +16,14 @@ const isModuleNotFoundError = (err) =>
 
 const installProcessWarningFilter = async () => {
   // Keep bootstrap warnings consistent with the TypeScript runtime.
-  for (const specifier of ["./dist/warning-filter.js", "./dist/warning-filter.mjs"]) {
+  // Primary path matches tsdown output from src/infra/warning-filter.ts.
+  // Keep legacy root-level probes for compatibility with older layouts.
+  for (const specifier of [
+    "./dist/infra/warning-filter.js",
+    "./dist/infra/warning-filter.mjs",
+    "./dist/warning-filter.js",
+    "./dist/warning-filter.mjs",
+  ]) {
     try {
       const mod = await import(specifier);
       if (typeof mod.installProcessWarningFilter === "function") {
