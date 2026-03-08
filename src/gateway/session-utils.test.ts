@@ -10,6 +10,7 @@ import {
   deriveSessionTitle,
   listAgentsForGateway,
   listSessionsFromStore,
+  loadCombinedSessionStoreForGateway,
   parseGroupKey,
   pruneLegacyStoreKeys,
   resolveGatewaySessionStoreTarget,
@@ -60,6 +61,49 @@ describe("gateway session utils", () => {
     expect(parseGroupKey("foo:bar")).toBeNull();
   });
 
+  test("loadCombinedSessionStoreForGateway includes discovered on-disk agent stores", () => {
+    const prevStateDir = process.env.OPENCLAW_STATE_DIR;
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "session-utils-discover-"));
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+    try {
+      const storeTemplate = path.join(stateDir, "agents", "{agentId}", "sessions.json");
+      const mainStorePath = path.join(stateDir, "agents", "main", "sessions.json");
+      const ponyStorePath = path.join(stateDir, "agents", "pony", "sessions.json");
+      fs.mkdirSync(path.dirname(mainStorePath), { recursive: true });
+      fs.mkdirSync(path.dirname(ponyStorePath), { recursive: true });
+      fs.writeFileSync(
+        mainStorePath,
+        JSON.stringify({ main: { sessionId: "sess-main", updatedAt: 2 } }),
+      );
+      fs.writeFileSync(
+        ponyStorePath,
+        JSON.stringify({
+          "agent:pony:subagent:worker": {
+            sessionId: "sess-pony-subagent",
+            updatedAt: 3,
+            spawnedBy: "agent:main:main",
+          },
+        }),
+      );
+
+      const cfg = {
+        session: { mainKey: "main", store: storeTemplate },
+        agents: { list: [{ id: "main", default: true }] },
+      } as OpenClawConfig;
+
+      const result = loadCombinedSessionStoreForGateway(cfg);
+      expect(result.storePath).toBe(storeTemplate);
+      expect(result.store["agent:main:main"]?.sessionId).toBe("sess-main");
+      expect(result.store["agent:pony:subagent:worker"]?.sessionId).toBe("sess-pony-subagent");
+    } finally {
+      if (prevStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = prevStateDir;
+      }
+      fs.rmSync(stateDir, { recursive: true, force: true });
+    }
+  });
   test("classifySessionKey respects chat type + prefixes", () => {
     expect(classifySessionKey("global")).toBe("global");
     expect(classifySessionKey("unknown")).toBe("unknown");

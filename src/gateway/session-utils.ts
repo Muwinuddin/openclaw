@@ -341,6 +341,21 @@ function listConfiguredAgentIds(cfg: OpenClawConfig): string[] {
   return sorted;
 }
 
+function listSessionStoreAgentIds(cfg: OpenClawConfig): string[] {
+  const ids = new Set(listConfiguredAgentIds(cfg));
+  // Include discovered on-disk agent stores so sessions.list can surface
+  // subagent sessions even when agents.list is explicitly configured.
+  for (const id of listExistingAgentIdsFromDisk()) {
+    ids.add(id);
+  }
+  const defaultId = normalizeAgentId(resolveDefaultAgentId(cfg));
+  const sorted = Array.from(ids).filter(Boolean);
+  sorted.sort((a, b) => a.localeCompare(b));
+  return sorted.includes(defaultId)
+    ? [defaultId, ...sorted.filter((id) => id !== defaultId)]
+    : sorted;
+}
+
 export function listAgentsForGateway(cfg: OpenClawConfig): {
   defaultId: string;
   mainKey: string;
@@ -595,7 +610,7 @@ export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
     return { storePath, store: combined };
   }
 
-  const agentIds = listConfiguredAgentIds(cfg);
+  const agentIds = listSessionStoreAgentIds(cfg);
   const combined: Record<string, SessionEntry> = {};
   for (const agentId of agentIds) {
     const storePath = resolveStorePath(storeConfig, { agentId });
