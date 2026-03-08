@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { callGatewayTool, resolveGatewayOptions } from "./gateway.js";
 
 const callGatewayMock = vi.fn();
+const invokeGatewayMethodInProcessMock = vi.fn();
 const configState = vi.hoisted(() => ({
   value: {} as Record<string, unknown>,
 }));
@@ -12,6 +13,9 @@ vi.mock("../../config/config.js", () => ({
 vi.mock("../../gateway/call.js", () => ({
   callGateway: (...args: unknown[]) => callGatewayMock(...args),
 }));
+vi.mock("../../gateway/in-process-tool-bridge.js", () => ({
+  invokeGatewayMethodInProcess: (...args: unknown[]) => invokeGatewayMethodInProcessMock(...args),
+}));
 
 describe("gateway tool defaults", () => {
   const envSnapshot = {
@@ -21,6 +25,8 @@ describe("gateway tool defaults", () => {
 
   beforeEach(() => {
     callGatewayMock.mockClear();
+    invokeGatewayMethodInProcessMock.mockClear();
+    invokeGatewayMethodInProcessMock.mockResolvedValue(null);
     configState.value = {};
     delete process.env.OPENCLAW_GATEWAY_TOKEN;
     delete process.env.CLAWDBOT_GATEWAY_TOKEN;
@@ -144,6 +150,44 @@ describe("gateway tool defaults", () => {
         scopes: ["operator.admin"],
       }),
     );
+  });
+
+  it("prefers in-process cron calls without opening a new gateway websocket", async () => {
+    invokeGatewayMethodInProcessMock.mockResolvedValueOnce({ ok: true, via: "in-process" });
+
+    const result = await callGatewayTool("cron.run", {}, { id: "job-1", mode: "force" });
+
+    expect(invokeGatewayMethodInProcessMock).toHaveBeenCalledWith("cron.run", {
+      id: "job-1",
+      mode: "force",
+    });
+    expect(callGatewayMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, via: "in-process" });
+  });
+
+  it("falls back to websocket gateway call when in-process cron bridge is unavailable", async () => {
+    callGatewayMock.mockResolvedValueOnce({ ok: true, via: "ws" });
+    invokeGatewayMethodInProcessMock.mockResolvedValueOnce(null);
+
+    const result = await callGatewayTool("cron.status", {}, {});
+
+    expect(invokeGatewayMethodInProcessMock).toHaveBeenCalledWith("cron.status", {});
+    expect(callGatewayMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "cron.status",
+        scopes: ["operator.read"],
+      }),
+    );
+    expect(result).toEqual({ ok: true, via: "ws" });
+  });
+
+  it("does not use in-process bridge when gatewayUrl override is provided", async () => {
+    callGatewayMock.mockResolvedValueOnce({ ok: true, via: "ws" });
+
+    await callGatewayTool("cron.run", { gatewayUrl: "ws://127.0.0.1:18789" }, { id: "job-1" });
+
+    expect(invokeGatewayMethodInProcessMock).not.toHaveBeenCalled();
+    expect(callGatewayMock).toHaveBeenCalledTimes(1);
   });
 
   it("default-denies unknown methods by sending no scopes", async () => {

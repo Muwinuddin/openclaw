@@ -1,6 +1,7 @@
 import { loadConfig, resolveGatewayPort } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
 import { resolveGatewayCredentialsFromConfig, trimToUndefined } from "../../gateway/credentials.js";
+import { invokeGatewayMethodInProcess } from "../../gateway/in-process-tool-bridge.js";
 import { resolveLeastPrivilegeOperatorScopesForMethod } from "../../gateway/method-scopes.js";
 import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../../utils/message-channel.js";
 import { readStringParam } from "./common.js";
@@ -143,6 +144,15 @@ export async function callGatewayTool<T = Record<string, unknown>>(
   params?: unknown,
   extra?: { expectFinal?: boolean },
 ) {
+  const shouldTryInProcess =
+    method.startsWith("cron.") && trimToUndefined(opts.gatewayUrl) === undefined;
+  if (shouldTryInProcess) {
+    const inProcessResult = await invokeGatewayMethodInProcess<T>(method, params);
+    if (inProcessResult !== null) {
+      return inProcessResult;
+    }
+  }
+
   const gateway = resolveGatewayOptions(opts);
   const scopes = resolveLeastPrivilegeOperatorScopesForMethod(method);
   return await callGateway<T>({
