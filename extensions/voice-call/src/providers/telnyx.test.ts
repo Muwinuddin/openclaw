@@ -141,6 +141,26 @@ describe("TelnyxProvider.verifyWebhook", () => {
 });
 
 describe("TelnyxProvider.parseWebhookEvent", () => {
+  it("ignores nested data payloads without an event_type", () => {
+    const provider = new TelnyxProvider({
+      apiKey: "KEY123",
+      connectionId: "CONN456",
+      publicKey: undefined,
+    });
+
+    const result = provider.parseWebhookEvent(
+      createCtx({
+        rawBody: JSON.stringify({
+          data: {
+            payload: { call_control_id: "call-missing-event-type" },
+          },
+        }),
+      }),
+    );
+
+    expect(result).toEqual({ events: [], statusCode: 200 });
+  });
+
   it("parses top-level Telnyx event payloads (no data wrapper)", () => {
     const provider = new TelnyxProvider({
       apiKey: "KEY123",

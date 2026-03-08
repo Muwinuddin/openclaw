@@ -206,10 +206,23 @@ export class TelnyxProvider implements VoiceCallProvider {
     const asRecord = payload as Record<string, unknown>;
     const nestedData = asRecord.data;
     if (nestedData && typeof nestedData === "object") {
-      return nestedData as TelnyxEvent;
+      return this.asTelnyxEvent(nestedData);
     }
 
-    return asRecord as TelnyxEvent;
+    return this.asTelnyxEvent(asRecord);
+  }
+
+  /**
+   * Narrow unknown payload shapes to Telnyx webhook events.
+   */
+  private asTelnyxEvent(payload: unknown): TelnyxEvent | null {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+    if (typeof (payload as { event_type?: unknown }).event_type !== "string") {
+      return null;
+    }
+    return payload as TelnyxEvent;
   }
 
   /**
