@@ -100,6 +100,19 @@ describe("registerAgentCommands", () => {
     );
   });
 
+  it("forwards --session-key to agent command", async () => {
+    await runCli(["agent", "--message", "hi", "--session-key", "agent:ops:telegram:group:-100123"]);
+
+    expect(agentCliCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "hi",
+        sessionKey: "agent:ops:telegram:group:-100123",
+      }),
+      runtime,
+      { deps: true },
+    );
+  });
+
   it("runs agents add and computes hasFlags based on explicit options", async () => {
     await runCli(["agents", "add", "alpha"]);
     expect(agentsAddCommandMock).toHaveBeenNthCalledWith(

@@ -83,6 +83,26 @@ beforeEach(() => {
 });
 
 describe("agentCliCommand", () => {
+  it("forwards explicit --session-key to gateway request", async () => {
+    await withTempStore(async () => {
+      mockGatewaySuccessReply();
+
+      await agentCliCommand(
+        {
+          message: "hi",
+          sessionKey: "agent:dev:telegram:group:-100123",
+        },
+        runtime,
+      );
+
+      expect(callGateway).toHaveBeenCalledTimes(1);
+      const request = vi.mocked(callGateway).mock.calls[0]?.[0] as {
+        params?: { sessionKey?: string };
+      };
+      expect(request.params?.sessionKey).toBe("agent:dev:telegram:group:-100123");
+    });
+  });
+
   it("uses a timer-safe max gateway timeout when --timeout is 0", async () => {
     await withTempStore(async () => {
       mockGatewaySuccessReply();
