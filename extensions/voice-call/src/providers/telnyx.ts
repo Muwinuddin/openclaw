@@ -101,7 +101,7 @@ export class TelnyxProvider implements VoiceCallProvider {
   ): ProviderWebhookParseResult {
     try {
       const payload = JSON.parse(ctx.rawBody);
-      const data = payload.data;
+      const data = this.extractEventPayload(payload);
 
       if (!data || !data.event_type) {
         return { events: [], statusCode: 200 };
@@ -141,6 +141,9 @@ export class TelnyxProvider implements VoiceCallProvider {
       callId,
       providerCallId: data.payload?.call_control_id,
       timestamp: Date.now(),
+      direction: this.parseDirection(data.payload?.direction),
+      from: this.getPhoneValue(data.payload, ["from", "from_number", "caller"]),
+      to: this.getPhoneValue(data.payload, ["to", "to_number", "callee"]),
     };
 
     switch (data.event_type) {
@@ -189,6 +192,61 @@ export class TelnyxProvider implements VoiceCallProvider {
       default:
         return null;
     }
+  }
+
+  /**
+   * Telnyx webhooks can arrive with either a top-level `data` object
+   * or event fields directly at the root depending on product/version.
+   */
+  private extractEventPayload(payload: unknown): TelnyxEvent | null {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const asRecord = payload as Record<string, unknown>;
+    const nestedData = asRecord.data;
+    if (nestedData && typeof nestedData === "object") {
+      return nestedData as TelnyxEvent;
+    }
+
+    return asRecord as TelnyxEvent;
+  }
+
+  /**
+   * Normalize Telnyx direction variants to plugin direction enums.
+   */
+  private parseDirection(direction: unknown): "inbound" | "outbound" | undefined {
+    if (typeof direction !== "string") {
+      return undefined;
+    }
+
+    const normalized = direction.trim().toLowerCase();
+    if (["inbound", "incoming", "inbound-api"].includes(normalized)) {
+      return "inbound";
+    }
+    if (["outbound", "outgoing", "outbound-api", "outbound-dial"].includes(normalized)) {
+      return "outbound";
+    }
+    return undefined;
+  }
+
+  /**
+   * Read provider phone values from multiple Telnyx payload key names.
+   */
+  private getPhoneValue(
+    payload: TelnyxEvent["payload"] | undefined,
+    keys: ReadonlyArray<string>,
+  ): string | undefined {
+    if (!payload) {
+      return undefined;
+    }
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value === "string" && value.trim()) {
+        return value;
+      }
+    }
+    return undefined;
   }
 
   /**
