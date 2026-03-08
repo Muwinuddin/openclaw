@@ -141,6 +141,73 @@ describe("TelnyxProvider.verifyWebhook", () => {
 });
 
 describe("TelnyxProvider.parseWebhookEvent", () => {
+  it("parses top-level Telnyx event payloads (no data wrapper)", () => {
+    const provider = new TelnyxProvider({
+      apiKey: "KEY123",
+      connectionId: "CONN456",
+      publicKey: undefined,
+    });
+
+    const result = provider.parseWebhookEvent(
+      createCtx({
+        rawBody: JSON.stringify({
+          id: "evt-top-level",
+          event_type: "call.initiated",
+          payload: {
+            call_control_id: "call-top-level",
+            direction: "incoming",
+            from: "+41435470301",
+            to: "+41799152500",
+          },
+        }),
+      }),
+      { verifiedRequestKey: "telnyx:req:top-level" },
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      type: "call.initiated",
+      callId: "call-top-level",
+      providerCallId: "call-top-level",
+      direction: "inbound",
+      from: "+41435470301",
+      to: "+41799152500",
+      dedupeKey: "telnyx:req:top-level",
+    });
+  });
+
+  it("parses phone numbers and direction from common Telnyx payload fields", () => {
+    const provider = new TelnyxProvider({
+      apiKey: "KEY123",
+      connectionId: "CONN456",
+      publicKey: undefined,
+    });
+
+    const result = provider.parseWebhookEvent(
+      createCtx({
+        rawBody: JSON.stringify({
+          data: {
+            id: "evt-numbers",
+            event_type: "call.initiated",
+            payload: {
+              call_control_id: "call-numbers",
+              direction: "inbound",
+              from_number: "+41435470301",
+              to_number: "+41799152500",
+            },
+          },
+        }),
+      }),
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      direction: "inbound",
+      from: "+41435470301",
+      to: "+41799152500",
+    });
+  });
+
   it("uses verified request key for manager dedupe", () => {
     const provider = new TelnyxProvider({
       apiKey: "KEY123",
