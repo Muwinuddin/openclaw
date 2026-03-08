@@ -64,6 +64,7 @@ import {
   type GatewayUpdateAvailableEventPayload,
 } from "./events.js";
 import { ExecApprovalManager } from "./exec-approval-manager.js";
+import { registerInProcessToolGatewayContext } from "./in-process-tool-bridge.js";
 import { NodeRegistry } from "./node-registry.js";
 import type { startBrowserControlServerIfEnabled } from "./server-browser.js";
 import { createChannelManager } from "./server-channels.js";
@@ -78,6 +79,7 @@ import { coreGatewayHandlers } from "./server-methods.js";
 import { createExecApprovalHandlers } from "./server-methods/exec-approval.js";
 import { safeParseJson } from "./server-methods/nodes.helpers.js";
 import { createSecretsHandlers } from "./server-methods/secrets.js";
+import type { GatewayRequestContext } from "./server-methods/types.js";
 import { hasConnectedMobileNode } from "./server-mobile-nodes.js";
 import { loadGatewayModelCatalog } from "./server-model-catalog.js";
 import { createNodeSubscriptionManager } from "./server-node-subscriptions.js";
@@ -693,6 +695,58 @@ export async function startGatewayServer(
 
   const canvasHostServerPort = (canvasHostServer as CanvasHostServer | null)?.port;
 
+  const gatewayRequestContext: GatewayRequestContext = {
+    deps,
+    cron,
+    cronStorePath,
+    execApprovalManager,
+    loadGatewayModelCatalog,
+    getHealthCache,
+    refreshHealthSnapshot: refreshGatewayHealthSnapshot,
+    logHealth,
+    logGateway: log,
+    incrementPresenceVersion,
+    getHealthVersion,
+    broadcast,
+    broadcastToConnIds,
+    nodeSendToSession,
+    nodeSendToAllSubscribed,
+    nodeSubscribe,
+    nodeUnsubscribe,
+    nodeUnsubscribeAll,
+    hasConnectedMobileNode: hasMobileNodeConnected,
+    hasExecApprovalClients: () => {
+      for (const gatewayClient of clients) {
+        const scopes = Array.isArray(gatewayClient.connect.scopes)
+          ? gatewayClient.connect.scopes
+          : [];
+        if (scopes.includes("operator.admin") || scopes.includes("operator.approvals")) {
+          return true;
+        }
+      }
+      return false;
+    },
+    nodeRegistry,
+    agentRunSeq,
+    chatAbortControllers,
+    chatAbortedRuns: chatRunState.abortedRuns,
+    chatRunBuffers: chatRunState.buffers,
+    chatDeltaSentAt: chatRunState.deltaSentAt,
+    addChatRun,
+    removeChatRun,
+    registerToolEventRecipient: toolEventRecipients.add,
+    dedupe,
+    wizardSessions,
+    findRunningWizard,
+    purgeWizardSession,
+    getRuntimeSnapshot,
+    startChannel,
+    stopChannel,
+    markChannelLoggedOut,
+    wizardRunner,
+    broadcastVoiceWakeChanged,
+  };
+
   attachGatewayWsHandlers({
     wss,
     clients,
@@ -714,58 +768,10 @@ export async function startGatewayServer(
       ...secretsHandlers,
     },
     broadcast,
-    context: {
-      deps,
-      cron,
-      cronStorePath,
-      execApprovalManager,
-      loadGatewayModelCatalog,
-      getHealthCache,
-      refreshHealthSnapshot: refreshGatewayHealthSnapshot,
-      logHealth,
-      logGateway: log,
-      incrementPresenceVersion,
-      getHealthVersion,
-      broadcast,
-      broadcastToConnIds,
-      nodeSendToSession,
-      nodeSendToAllSubscribed,
-      nodeSubscribe,
-      nodeUnsubscribe,
-      nodeUnsubscribeAll,
-      hasConnectedMobileNode: hasMobileNodeConnected,
-      hasExecApprovalClients: () => {
-        for (const gatewayClient of clients) {
-          const scopes = Array.isArray(gatewayClient.connect.scopes)
-            ? gatewayClient.connect.scopes
-            : [];
-          if (scopes.includes("operator.admin") || scopes.includes("operator.approvals")) {
-            return true;
-          }
-        }
-        return false;
-      },
-      nodeRegistry,
-      agentRunSeq,
-      chatAbortControllers,
-      chatAbortedRuns: chatRunState.abortedRuns,
-      chatRunBuffers: chatRunState.buffers,
-      chatDeltaSentAt: chatRunState.deltaSentAt,
-      addChatRun,
-      removeChatRun,
-      registerToolEventRecipient: toolEventRecipients.add,
-      dedupe,
-      wizardSessions,
-      findRunningWizard,
-      purgeWizardSession,
-      getRuntimeSnapshot,
-      startChannel,
-      stopChannel,
-      markChannelLoggedOut,
-      wizardRunner,
-      broadcastVoiceWakeChanged,
-    },
+    context: gatewayRequestContext,
   });
+  const unregisterInProcessToolGatewayContext =
+    registerInProcessToolGatewayContext(gatewayRequestContext);
   logGatewayStartup({
     cfg: cfgAtStart,
     bindHost,
@@ -929,6 +935,7 @@ export async function startGatewayServer(
       browserAuthRateLimiter.dispose();
       channelHealthMonitor?.stop();
       clearSecretsRuntimeSnapshot();
+      unregisterInProcessToolGatewayContext();
       await close(opts);
     },
   };
