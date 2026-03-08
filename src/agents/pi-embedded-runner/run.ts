@@ -112,6 +112,9 @@ const BASE_RUN_RETRY_ITERATIONS = 24;
 const RUN_RETRY_ITERATIONS_PER_PROFILE = 8;
 const MIN_RUN_RETRY_ITERATIONS = 32;
 const MAX_RUN_RETRY_ITERATIONS = 160;
+const BILLING_PROBE_INTERVAL_MS = 60_000;
+const BILLING_PROBE_SCOPE_DELIMITER = "::";
+const lastBillingProbeAttempt = new Map<string, number>();
 
 function resolveMaxRunRetryIterations(profileCandidateCount: number): number {
   const scaled =
@@ -119,6 +122,54 @@ function resolveMaxRunRetryIterations(profileCandidateCount: number): number {
     Math.max(1, profileCandidateCount) * RUN_RETRY_ITERATIONS_PER_PROFILE;
   return Math.min(MAX_RUN_RETRY_ITERATIONS, Math.max(MIN_RUN_RETRY_ITERATIONS, scaled));
 }
+
+function resolveBillingProbeThrottleKey(profileId: string, agentDir?: string): string {
+  const scope = String(agentDir ?? "").trim();
+  return scope
+    ? `${scope}${BILLING_PROBE_SCOPE_DELIMITER}${profileId}`
+    : `${BILLING_PROBE_SCOPE_DELIMITER}${profileId}`;
+}
+
+function shouldProbeBillingDisabledProfile(params: {
+  fallbackConfigured: boolean;
+  store: ReturnType<typeof ensureAuthProfileStore>;
+  profileId: string;
+  now: number;
+  agentDir?: string;
+}): boolean {
+  if (params.fallbackConfigured) {
+    return false;
+  }
+
+  const stats = params.store.usageStats?.[params.profileId];
+  if (stats?.disabledReason !== "billing") {
+    return false;
+  }
+  if (
+    typeof stats.disabledUntil !== "number" ||
+    !Number.isFinite(stats.disabledUntil) ||
+    stats.disabledUntil <= params.now
+  ) {
+    return false;
+  }
+
+  const throttleKey = resolveBillingProbeThrottleKey(params.profileId, params.agentDir);
+  const lastProbe = lastBillingProbeAttempt.get(throttleKey) ?? 0;
+  if (params.now - lastProbe < BILLING_PROBE_INTERVAL_MS) {
+    return false;
+  }
+
+  lastBillingProbeAttempt.set(throttleKey, params.now);
+  return true;
+}
+
+/** @internal – exposed for unit tests only */
+export const _billingProbeThrottleInternals = {
+  lastBillingProbeAttempt,
+  BILLING_PROBE_INTERVAL_MS,
+  BILLING_PROBE_SCOPE_DELIMITER,
+  resolveBillingProbeThrottleKey,
+} as const;
 
 const hasUsageValues = (
   usage: ReturnType<typeof normalizeUsage>,
@@ -458,7 +509,17 @@ export async function runEmbeddedPiAgent(
         let nextIndex = profileIndex + 1;
         while (nextIndex < profileCandidates.length) {
           const candidate = profileCandidates[nextIndex];
-          if (candidate && isProfileInCooldown(authStore, candidate)) {
+          if (
+            candidate &&
+            isProfileInCooldown(authStore, candidate) &&
+            !shouldProbeBillingDisabledProfile({
+              fallbackConfigured,
+              store: authStore,
+              profileId: candidate,
+              now: Date.now(),
+              agentDir,
+            })
+          ) {
             nextIndex += 1;
             continue;
           }
@@ -484,7 +545,14 @@ export async function runEmbeddedPiAgent(
           if (
             candidate &&
             candidate !== lockedProfileId &&
-            isProfileInCooldown(authStore, candidate)
+            isProfileInCooldown(authStore, candidate) &&
+            !shouldProbeBillingDisabledProfile({
+              fallbackConfigured,
+              store: authStore,
+              profileId: candidate,
+              now: Date.now(),
+              agentDir,
+            })
           ) {
             profileIndex += 1;
             continue;

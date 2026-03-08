@@ -28,14 +28,17 @@ vi.mock("./models-config.js", async (importOriginal) => {
 });
 
 let runEmbeddedPiAgent: typeof import("./pi-embedded-runner/run.js").runEmbeddedPiAgent;
+let billingProbeThrottleInternals: typeof import("./pi-embedded-runner/run.js")._billingProbeThrottleInternals;
 
 beforeAll(async () => {
-  ({ runEmbeddedPiAgent } = await import("./pi-embedded-runner/run.js"));
+  ({ runEmbeddedPiAgent, _billingProbeThrottleInternals: billingProbeThrottleInternals } =
+    await import("./pi-embedded-runner/run.js"));
 });
 
 beforeEach(() => {
   vi.useRealTimers();
   runEmbeddedAttemptMock.mockClear();
+  billingProbeThrottleInternals.lastBillingProbeAttempt.clear();
 });
 
 const baseUsage = {
@@ -588,6 +591,106 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
       });
 
       expect(runEmbeddedAttemptMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("probes billing-disabled auto profile without fallbacks after throttle interval", async () => {
+    await withTimedAgentWorkspace(async ({ agentDir, workspaceDir, now }) => {
+      await writeAuthStore(agentDir, {
+        usageStats: {
+          "openai:p1": {
+            lastUsed: 1,
+            disabledUntil: now + 5 * 60 * 60 * 1000,
+            disabledReason: "billing",
+          },
+          "openai:p2": { lastUsed: 2 },
+        },
+      });
+
+      mockSingleSuccessfulAttempt();
+      await runAutoPinnedOpenAiTurn({
+        agentDir,
+        workspaceDir,
+        sessionKey: "agent:test:billing-probe-first",
+        runId: "run:billing-probe-first",
+      });
+
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(1);
+
+      await writeAuthStore(agentDir, {
+        usageStats: {
+          "openai:p1": {
+            lastUsed: 1,
+            disabledUntil: now + 5 * 60 * 60 * 1000,
+            disabledReason: "billing",
+          },
+          "openai:p2": { lastUsed: 2 },
+        },
+      });
+
+      runEmbeddedAttemptMock.mockClear();
+      mockSingleSuccessfulAttempt();
+      await runAutoPinnedOpenAiTurn({
+        agentDir,
+        workspaceDir,
+        sessionKey: "agent:test:billing-probe-throttled",
+        runId: "run:billing-probe-throttled",
+      });
+
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(1);
+      const throttledUsage = await readUsageStats(agentDir);
+      expect(throttledUsage["openai:p2"]?.lastUsed).toBe(now);
+
+      vi.setSystemTime(now + 61_000);
+      runEmbeddedAttemptMock.mockClear();
+      mockSingleSuccessfulAttempt();
+      await runAutoPinnedOpenAiTurn({
+        agentDir,
+        workspaceDir,
+        sessionKey: "agent:test:billing-probe-retry",
+        runId: "run:billing-probe-retry",
+      });
+
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(1);
+      const retriedUsage = await readUsageStats(agentDir);
+      expect(retriedUsage["openai:p1"]?.lastUsed).toBe(now + 61_000);
+    });
+  });
+
+  it("keeps billing-disabled profile skipped when fallbacks are configured", async () => {
+    await withTimedAgentWorkspace(async ({ agentDir, workspaceDir, now }) => {
+      await writeAuthStore(agentDir, {
+        usageStats: {
+          "openai:p1": {
+            lastUsed: 1,
+            disabledUntil: now + 5 * 60 * 60 * 1000,
+            disabledReason: "billing",
+          },
+          "openai:p2": { lastUsed: 2 },
+        },
+      });
+
+      mockSingleSuccessfulAttempt();
+      await runEmbeddedPiAgent({
+        sessionId: "session:test",
+        sessionKey: "agent:test:billing-fallback-skip",
+        sessionFile: path.join(workspaceDir, "session.jsonl"),
+        workspaceDir,
+        agentDir,
+        config: makeConfig({ fallbacks: ["openai/mock-2"] }),
+        prompt: "hello",
+        provider: "openai",
+        model: "mock-1",
+        authProfileId: "openai:p1",
+        authProfileIdSource: "auto",
+        timeoutMs: 5_000,
+        runId: "run:billing-fallback-skip",
+      });
+
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(1);
+      const usageStats = await readUsageStats(agentDir);
+      expect(usageStats["openai:p2"]?.lastUsed).toBe(now);
+      expect(usageStats["openai:p1"]?.lastUsed).toBe(1);
     });
   });
 
