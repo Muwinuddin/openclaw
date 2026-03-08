@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { openBoundaryFile } from "../infra/boundary-file-read.js";
 import { resolveRequiredHomeDir } from "../infra/home-dir.js";
+import { openVerifiedFileSync } from "../infra/safe-open-sync.js";
 import { runCommandWithTimeout } from "../process/exec.js";
 import { isCronSessionKey, isSubagentSessionKey } from "../routing/session-key.js";
 import { resolveUserPath } from "../utils.js";
@@ -63,27 +64,39 @@ async function readWorkspaceFileWithGuards(params: {
     boundaryLabel: "workspace root",
     maxBytes: MAX_WORKSPACE_BOOTSTRAP_FILE_BYTES,
   });
-  if (!opened.ok) {
+  if (!opened.ok && opened.reason !== "validation") {
     workspaceFileCache.delete(params.filePath);
     return opened;
   }
 
-  const identity = workspaceFileIdentity(opened.stat, opened.path);
+  const openedFile = opened.ok
+    ? opened
+    : openVerifiedFileSync({
+        filePath: params.filePath,
+        rejectHardlinks: true,
+        maxBytes: MAX_WORKSPACE_BOOTSTRAP_FILE_BYTES,
+      });
+  if (!openedFile.ok) {
+    workspaceFileCache.delete(params.filePath);
+    return openedFile;
+  }
+
+  const identity = workspaceFileIdentity(openedFile.stat, openedFile.path);
   const cached = workspaceFileCache.get(params.filePath);
   if (cached && cached.identity === identity) {
-    syncFs.closeSync(opened.fd);
+    syncFs.closeSync(openedFile.fd);
     return { ok: true, content: cached.content };
   }
 
   try {
-    const content = syncFs.readFileSync(opened.fd, "utf-8");
+    const content = syncFs.readFileSync(openedFile.fd, "utf-8");
     workspaceFileCache.set(params.filePath, { content, identity });
     return { ok: true, content };
   } catch (error) {
     workspaceFileCache.delete(params.filePath);
     return { ok: false, reason: "io", error };
   } finally {
-    syncFs.closeSync(opened.fd);
+    syncFs.closeSync(openedFile.fd);
   }
 }
 
