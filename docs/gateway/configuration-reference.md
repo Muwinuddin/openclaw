@@ -937,6 +937,7 @@ Periodic heartbeat runs.
   agents: {
     defaults: {
       compaction: {
+        model: "openai/gpt-4.1", // optional compaction-only model
         mode: "safeguard", // default | safeguard
         reserveTokensFloor: 24000,
         memoryFlush: {
@@ -951,6 +952,7 @@ Periodic heartbeat runs.
 }
 ```
 
+- `model`: optional compaction-only model override (string `provider/model` or `{ primary, fallbacks }`).
 - `mode`: `default` or `safeguard` (chunked summarization for long histories). See [Compaction](/concepts/compaction).
 - `memoryFlush`: silent agentic turn before auto-compaction to store durable memories. Skipped when workspace is read-only.
 
