@@ -11,6 +11,7 @@ import { resolveHeartbeatPrompt } from "../../auto-reply/heartbeat.js";
 import type { ReasoningLevel, ThinkLevel } from "../../auto-reply/thinking.js";
 import { resolveChannelCapabilities } from "../../config/channel-capabilities.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { resolveAgentModelPrimaryValue } from "../../config/model-input.js";
 import { getMachineDisplayName } from "../../infra/machine-name.js";
 import { generateSecureToken } from "../../infra/secure-random.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
@@ -32,6 +33,7 @@ import { formatUserTime, resolveUserTimeFormat, resolveUserTimezone } from "../d
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../defaults.js";
 import { resolveOpenClawDocsPath } from "../docs-path.js";
 import { getApiKeyForModel, resolveModelAuthMode } from "../model-auth.js";
+import { parseModelRef } from "../model-selection.js";
 import { ensureOpenClawModelsJson } from "../models-config.js";
 import { resolveOwnerDisplaySetting } from "../owner-display.js";
 import {
@@ -257,11 +259,19 @@ export async function compactEmbeddedPiSessionDirect(
   const prevCwd = process.cwd();
 
   const provider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
-  const modelId = (params.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const defaultCompactionModel = resolveAgentModelPrimaryValue(
+    params.config?.agents?.defaults?.compaction?.model,
+  );
+  const parsedCompactionModel = defaultCompactionModel
+    ? parseModelRef(defaultCompactionModel, provider)
+    : null;
+  const modelProvider = parsedCompactionModel?.provider ?? provider;
+  const modelId =
+    (params.model ?? parsedCompactionModel?.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
   const fail = (reason: string): EmbeddedPiCompactResult => {
     log.warn(
       `[compaction-diag] end runId=${runId} sessionKey=${params.sessionKey ?? params.sessionId} ` +
-        `diagId=${diagId} trigger=${trigger} provider=${provider}/${modelId} ` +
+        `diagId=${diagId} trigger=${trigger} provider=${modelProvider}/${modelId} ` +
         `attempt=${attempt} maxAttempts=${maxAttempts} outcome=failed reason=${classifyCompactionReason(reason)} ` +
         `durationMs=${Date.now() - startedAt}`,
     );
@@ -274,13 +284,13 @@ export async function compactEmbeddedPiSessionDirect(
   const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
   await ensureOpenClawModelsJson(params.config, agentDir);
   const { model, error, authStorage, modelRegistry } = resolveModel(
-    provider,
+    modelProvider,
     modelId,
     agentDir,
     params.config,
   );
   if (!model) {
-    const reason = error ?? `Unknown model: ${provider}/${modelId}`;
+    const reason = error ?? `Unknown model: ${modelProvider}/${modelId}`;
     return fail(reason);
   }
   try {
@@ -384,9 +394,9 @@ export async function compactEmbeddedPiSessionDirect(
       modelContextWindowTokens: model.contextWindow,
       modelAuthMode: resolveModelAuthMode(model.provider, params.config),
     });
-    const tools = sanitizeToolsForGoogle({ tools: toolsRaw, provider });
+    const tools = sanitizeToolsForGoogle({ tools: toolsRaw, provider: modelProvider });
     const allowedToolNames = collectAllowedToolNames({ tools });
-    logToolSchemasForGoogle({ tools, provider });
+    logToolSchemasForGoogle({ tools, provider: modelProvider });
     const machineName = await getMachineDisplayName();
     const runtimeChannel = normalizeMessageChannel(params.messageChannel ?? params.messageProvider);
     let runtimeCapabilities = runtimeChannel
@@ -650,7 +660,7 @@ export async function compactEmbeddedPiSessionDirect(
         if (diagEnabled && preMetrics) {
           log.debug(
             `[compaction-diag] start runId=${runId} sessionKey=${params.sessionKey ?? params.sessionId} ` +
-              `diagId=${diagId} trigger=${trigger} provider=${provider}/${modelId} ` +
+              `diagId=${diagId} trigger=${trigger} provider=${modelProvider}/${modelId} ` +
               `attempt=${attempt} maxAttempts=${maxAttempts} ` +
               `pre.messages=${preMetrics.messages} pre.historyTextChars=${preMetrics.historyTextChars} ` +
               `pre.toolResultChars=${preMetrics.toolResultChars} pre.estTokens=${preMetrics.estTokens ?? "unknown"}`,
@@ -702,7 +712,7 @@ export async function compactEmbeddedPiSessionDirect(
         if (diagEnabled && preMetrics && postMetrics) {
           log.debug(
             `[compaction-diag] end runId=${runId} sessionKey=${params.sessionKey ?? params.sessionId} ` +
-              `diagId=${diagId} trigger=${trigger} provider=${provider}/${modelId} ` +
+              `diagId=${diagId} trigger=${trigger} provider=${modelProvider}/${modelId} ` +
               `attempt=${attempt} maxAttempts=${maxAttempts} outcome=compacted reason=none ` +
               `durationMs=${Date.now() - compactStartedAt} retrying=false ` +
               `post.messages=${postMetrics.messages} post.historyTextChars=${postMetrics.historyTextChars} ` +

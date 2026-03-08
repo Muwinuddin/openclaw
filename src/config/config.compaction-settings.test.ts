@@ -58,6 +58,30 @@ describe("config compaction settings", () => {
     );
   });
 
+  it("preserves compaction model override values", async () => {
+    await withTempHomeConfig(
+      {
+        agents: {
+          defaults: {
+            compaction: {
+              model: {
+                primary: "openai/gpt-4.1-mini",
+                fallbacks: ["openai/gpt-5.2-mini"],
+              },
+            },
+          },
+        },
+      },
+      async () => {
+        const cfg = loadConfig();
+        expect(cfg.agents?.defaults?.compaction?.model).toEqual({
+          primary: "openai/gpt-4.1-mini",
+          fallbacks: ["openai/gpt-5.2-mini"],
+        });
+      },
+    );
+  });
+
   it("defaults compaction mode to safeguard", async () => {
     await withTempHomeConfig(
       {

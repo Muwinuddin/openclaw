@@ -271,6 +271,8 @@ export type AgentDefaultsConfig = {
 export type AgentCompactionMode = "default" | "safeguard";
 
 export type AgentCompactionConfig = {
+  /** Model used specifically for compaction turns (string or {primary,fallbacks}). */
+  model?: AgentModelConfig;
   /** Compaction summarization mode. */
   mode?: AgentCompactionMode;
   /** Pi reserve tokens target before floor enforcement. */
