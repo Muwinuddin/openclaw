@@ -13,6 +13,7 @@ metadata:
             {
               "id": "brew",
               "kind": "brew",
+              "os": ["darwin", "linux"],
               "formula": "spogo",
               "tap": "steipete/tap",
               "bins": ["spogo"],

@@ -13,6 +13,7 @@ metadata:
             {
               "id": "brew-cask",
               "kind": "brew",
+              "os": ["darwin", "linux"],
               "formula": "steipete/tap/codexbar",
               "bins": ["codexbar"],
               "label": "Install CodexBar (brew cask)",

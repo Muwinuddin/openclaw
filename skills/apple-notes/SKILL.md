@@ -14,6 +14,7 @@ metadata:
             {
               "id": "brew",
               "kind": "brew",
+              "os": ["darwin", "linux"],
               "formula": "antoniorodr/memo/memo",
               "bins": ["memo"],
               "label": "Install memo via Homebrew",
