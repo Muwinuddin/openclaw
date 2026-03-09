@@ -103,6 +103,67 @@ describe("createOpenClawCodingTools", () => {
       expect(params.required ?? []).not.toContain("file_path");
     });
 
+    it("leaves tools with undefined parameters unchanged", () => {
+      const base: AgentTool = {
+        name: "noop",
+        label: "noop",
+        description: "test",
+        parameters: undefined,
+        execute: vi.fn(),
+      };
+
+      const patched = __testing.patchToolSchemaForClaudeCompatibility(base);
+      expect(patched).toBe(base);
+    });
+
+    it("adds aliases inside anyOf and oneOf variants without crashing", () => {
+      const base: AgentTool = {
+        name: "write",
+        label: "write",
+        description: "test",
+        parameters: {
+          type: "object",
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                path: { type: "string" },
+              },
+              required: ["path"],
+            },
+          ],
+          oneOf: [
+            {
+              type: "object",
+              properties: {
+                oldText: { type: "string" },
+                newText: { type: "string" },
+              },
+              required: ["oldText", "newText"],
+            },
+            { type: "string" },
+          ],
+        },
+        execute: vi.fn(),
+      };
+
+      const patched = __testing.patchToolSchemaForClaudeCompatibility(base);
+      const params = patched.parameters as {
+        anyOf?: Array<{ properties?: Record<string, unknown>; required?: string[] }>;
+        oneOf?: Array<{ properties?: Record<string, unknown>; required?: string[] }>;
+      };
+
+      const anyOfProps = params.anyOf?.[0]?.properties ?? {};
+      expect(anyOfProps.file_path).toEqual(anyOfProps.path);
+      expect(params.anyOf?.[0]?.required ?? []).not.toContain("path");
+
+      const oneOfProps = params.oneOf?.[0]?.properties ?? {};
+      expect(oneOfProps.old_string).toEqual(oneOfProps.oldText);
+      expect(oneOfProps.new_string).toEqual(oneOfProps.newText);
+      expect(params.oneOf?.[0]?.required ?? []).not.toContain("oldText");
+      expect(params.oneOf?.[0]?.required ?? []).not.toContain("newText");
+    });
+
     it("normalizes file_path to path and enforces required groups at runtime", async () => {
       const execute = vi.fn(async (_id, args) => args);
       const tool: AgentTool = {
