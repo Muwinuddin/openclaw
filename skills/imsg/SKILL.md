@@ -14,6 +14,7 @@ metadata:
             {
               "id": "brew",
               "kind": "brew",
+              "os": ["darwin", "linux"],
               "formula": "steipete/tap/imsg",
               "bins": ["imsg"],
               "label": "Install imsg (brew)",
