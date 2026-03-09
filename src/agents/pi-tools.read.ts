@@ -448,15 +448,51 @@ export function patchToolSchemaForClaudeCompatibility(tool: AnyAgentTool): AnyAg
       ? (tool.parameters as Record<string, unknown>)
       : undefined;
 
-  if (!schema || !schema.properties || typeof schema.properties !== "object") {
+  if (!schema) {
     return tool;
   }
 
-  const properties = { ...(schema.properties as Record<string, unknown>) };
-  const required = Array.isArray(schema.required)
-    ? schema.required.filter((key): key is string => typeof key === "string")
-    : [];
-  let changed = false;
+  const patchSchemaObjectAliases = (
+    value: Record<string, unknown>,
+  ): { changed: boolean; schema: Record<string, unknown> } => {
+    if (!value.properties || typeof value.properties !== "object") {
+      return { changed: false, schema: value };
+    }
+
+    const properties = { ...(value.properties as Record<string, unknown>) };
+    const required = Array.isArray(value.required)
+      ? value.required.filter((key): key is string => typeof key === "string")
+      : [];
+    let changed = false;
+
+    for (const { original, alias } of aliasPairs) {
+      if (!(original in properties)) {
+        continue;
+      }
+      if (!(alias in properties)) {
+        properties[alias] = properties[original];
+        changed = true;
+      }
+      const idx = required.indexOf(original);
+      if (idx !== -1) {
+        required.splice(idx, 1);
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      return { changed: false, schema: value };
+    }
+
+    return {
+      changed: true,
+      schema: {
+        ...value,
+        properties,
+        required,
+      },
+    };
+  };
 
   const aliasPairs: Array<{ original: string; alias: string }> = [
     { original: "path", alias: "file_path" },
@@ -464,18 +500,35 @@ export function patchToolSchemaForClaudeCompatibility(tool: AnyAgentTool): AnyAg
     { original: "newText", alias: "new_string" },
   ];
 
-  for (const { original, alias } of aliasPairs) {
-    if (!(original in properties)) {
+  let changed = false;
+  const patchedRoot = patchSchemaObjectAliases(schema);
+  let patchedSchema = patchedRoot.schema;
+  changed = changed || patchedRoot.changed;
+
+  for (const key of ["anyOf", "oneOf"] as const) {
+    const variants = patchedSchema[key];
+    if (!Array.isArray(variants)) {
       continue;
     }
-    if (!(alias in properties)) {
-      properties[alias] = properties[original];
-      changed = true;
-    }
-    const idx = required.indexOf(original);
-    if (idx !== -1) {
-      required.splice(idx, 1);
-      changed = true;
+
+    let variantsChanged = false;
+    const nextVariants = variants.map((variant) => {
+      if (!variant || typeof variant !== "object") {
+        return variant;
+      }
+      const patched = patchSchemaObjectAliases(variant as Record<string, unknown>);
+      if (patched.changed) {
+        variantsChanged = true;
+        changed = true;
+      }
+      return patched.schema;
+    });
+
+    if (variantsChanged) {
+      patchedSchema = {
+        ...patchedSchema,
+        [key]: nextVariants,
+      };
     }
   }
 
@@ -485,11 +538,7 @@ export function patchToolSchemaForClaudeCompatibility(tool: AnyAgentTool): AnyAg
 
   return {
     ...tool,
-    parameters: {
-      ...schema,
-      properties,
-      required,
-    },
+    parameters: patchedSchema,
   };
 }
 
