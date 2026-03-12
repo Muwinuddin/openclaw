@@ -196,6 +196,8 @@ export type DiscordAccountConfig = {
   token?: string;
   /** HTTP(S) proxy URL for Discord gateway WebSocket connections. */
   proxy?: string;
+  /** Delay between Discord account startup attempts (ms). Default: 0 (no stagger). */
+  connectionStaggerMs?: number;
   /** Allow bot-authored messages to trigger replies (default: false). */
   allowBots?: boolean;
   /**

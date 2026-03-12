@@ -87,13 +87,13 @@ function installTestRegistry(plugin: ChannelPlugin<TestAccount>) {
   setActivePluginRegistry(registry);
 }
 
-function createManager() {
+function createManager(loadConfig: () => Record<string, unknown> = () => ({})) {
   const log = createSubsystemLogger("gateway/server-channels-test");
   const channelLogs = { discord: log } as Record<ChannelId, SubsystemLogger>;
   const runtime = runtimeForLogger(log);
   const channelRuntimeEnvs = { discord: runtime } as Record<ChannelId, RuntimeEnv>;
   return createChannelManager({
-    loadConfig: () => ({}),
+    loadConfig,
     channelLogs,
     channelRuntimeEnvs,
   });
@@ -153,6 +153,48 @@ describe("server-channels auto restart", () => {
     expect(startAccount).toHaveBeenCalledTimes(1);
   });
 
+  it("stagger-starts channel accounts when gateway provides startStaggerMs", async () => {
+    const starts: Array<{ accountId: string; at: number }> = [];
+    const plugin: ChannelPlugin<TestAccount> = {
+      ...createTestPlugin({
+        startAccount: vi.fn(async (ctx) => {
+          starts.push({ accountId: ctx.accountId, at: Date.now() });
+        }),
+      }),
+      config: {
+        ...createTestPlugin().config,
+        listAccountIds: () => ["default", "work"],
+        resolveAccount: () => ({ enabled: true, configured: true }),
+      },
+      gateway: {
+        startStaggerMs: () => 3000,
+        startAccount: async (ctx) => {
+          starts.push({ accountId: ctx.accountId, at: Date.now() });
+          await new Promise<void>((resolve) => {
+            ctx.abortSignal.addEventListener("abort", () => resolve(), { once: true });
+          });
+        },
+      },
+    };
+
+    installTestRegistry(plugin);
+    const manager = createManager();
+
+    const startPromise = manager.startChannels();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(starts).toHaveLength(1);
+    expect(starts[0]?.accountId).toBe("default");
+
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(starts).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await startPromise;
+    expect(starts).toHaveLength(2);
+    expect(starts[1]?.accountId).toBe("work");
+
+    await manager.stopChannel("discord");
+  });
   it("marks enabled/configured when account descriptors omit them", () => {
     installTestRegistry(
       createTestPlugin({

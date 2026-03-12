@@ -209,6 +209,7 @@ export type ChannelPairingAdapter = {
 };
 
 export type ChannelGatewayAdapter<ResolvedAccount = unknown> = {
+  startStaggerMs?: (params: { cfg: OpenClawConfig }) => number;
   startAccount?: (ctx: ChannelGatewayContext<ResolvedAccount>) => Promise<unknown>;
   stopAccount?: (ctx: ChannelGatewayContext<ResolvedAccount>) => Promise<void>;
   loginWithQrStart?: (params: {

@@ -134,8 +134,20 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
       return;
     }
 
+    const staggerMsRaw = plugin.gateway?.startStaggerMs?.({ cfg });
+    const staggerMs =
+      typeof staggerMsRaw === "number" && Number.isFinite(staggerMsRaw)
+        ? Math.max(0, Math.floor(staggerMsRaw))
+        : 0;
+
     await Promise.all(
-      accountIds.map(async (id) => {
+      accountIds.map(async (id, index) => {
+        if (!accountId && staggerMs > 0 && index > 0) {
+          const delayMs = staggerMs * index;
+          const log = channelLogs[channelId];
+          log.info?.(`[${id}] delaying startup by ${Math.round(delayMs / 1000)}s (stagger)`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
         if (store.tasks.has(id)) {
           return;
         }

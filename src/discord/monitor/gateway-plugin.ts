@@ -27,6 +27,33 @@ export function resolveDiscordGatewayIntents(
   return intents;
 }
 
+function formatGatewayRegisterClientError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    message.includes("Unexpected token") ||
+    message.includes("overflow") ||
+    message.includes("upstream connect error")
+  ) {
+    return "Discord gateway bootstrap failed due to an upstream 503/overflow response. OpenClaw will keep retrying.";
+  }
+  return `Discord gateway bootstrap failed: ${message}`;
+}
+
+function createSafeRegisterClientMixin(
+  Base: typeof GatewayPlugin,
+  runtime: RuntimeEnv,
+): typeof GatewayPlugin {
+  return class SafeGatewayPlugin extends Base {
+    override async registerClient(client: Parameters<GatewayPlugin["registerClient"]>[0]) {
+      try {
+        return await super.registerClient(client);
+      } catch (error) {
+        runtime.error?.(danger(`discord: ${formatGatewayRegisterClientError(error)}`));
+      }
+    }
+  };
+}
+
 export function createDiscordGatewayPlugin(params: {
   discordConfig: DiscordAccountConfig;
   runtime: RuntimeEnv;
@@ -40,7 +67,8 @@ export function createDiscordGatewayPlugin(params: {
   };
 
   if (!proxy) {
-    return new GatewayPlugin(options);
+    const SafeGatewayPlugin = createSafeRegisterClientMixin(GatewayPlugin, params.runtime);
+    return new SafeGatewayPlugin(options);
   }
 
   try {
@@ -63,15 +91,22 @@ export function createDiscordGatewayPlugin(params: {
               },
               dispatcher: fetchAgent,
             } as Record<string, unknown>);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
             this.gatewayInfo = (await response.json()) as APIGatewayBotInfo;
           } catch (error) {
-            throw new Error(
-              `Failed to get gateway information from Discord: ${error instanceof Error ? error.message : String(error)}`,
-              { cause: error },
-            );
+            params.runtime.error?.(danger(`discord: ${formatGatewayRegisterClientError(error)}`));
+            return;
           }
         }
-        return super.registerClient(client);
+
+        try {
+          return await super.registerClient(client);
+        } catch (error) {
+          params.runtime.error?.(danger(`discord: ${formatGatewayRegisterClientError(error)}`));
+        }
       }
 
       override createWebSocket(url: string) {
@@ -82,6 +117,7 @@ export function createDiscordGatewayPlugin(params: {
     return new ProxyGatewayPlugin();
   } catch (err) {
     params.runtime.error?.(danger(`discord: invalid gateway proxy: ${String(err)}`));
-    return new GatewayPlugin(options);
+    const SafeGatewayPlugin = createSafeRegisterClientMixin(GatewayPlugin, params.runtime);
+    return new SafeGatewayPlugin(options);
   }
 }

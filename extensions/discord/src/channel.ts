@@ -404,6 +404,13 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
     },
   },
   gateway: {
+    startStaggerMs: ({ cfg }) => {
+      const ms = cfg.channels?.discord?.connectionStaggerMs;
+      if (typeof ms !== "number" || !Number.isFinite(ms)) {
+        return 0;
+      }
+      return Math.max(0, Math.floor(ms));
+    },
     startAccount: async (ctx) => {
       const account = ctx.account;
       const token = account.token.trim();

@@ -413,6 +413,7 @@ export const DiscordAccountSchema = z
     configWrites: z.boolean().optional(),
     token: z.string().optional().register(sensitive),
     proxy: z.string().optional(),
+    connectionStaggerMs: z.number().int().min(0).max(120000).optional(),
     allowBots: z.boolean().optional(),
     dangerouslyAllowNameMatching: z.boolean().optional(),
     groupPolicy: GroupPolicySchema.optional().default("allowlist"),
