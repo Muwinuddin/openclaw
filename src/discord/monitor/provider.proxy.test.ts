@@ -161,7 +161,7 @@ describe("createDiscordGatewayPlugin", () => {
       runtime,
     });
 
-    expect(Object.getPrototypeOf(plugin)).toBe(GatewayPlugin.prototype);
+    expect(Object.getPrototypeOf(plugin)).not.toBe(GatewayPlugin.prototype);
     expect(runtime.error).toHaveBeenCalled();
     expect(runtime.log).not.toHaveBeenCalled();
   });
@@ -169,6 +169,9 @@ describe("createDiscordGatewayPlugin", () => {
   it("uses proxy fetch for gateway metadata lookup before registering", async () => {
     const runtime = createRuntime();
     undiciFetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
       json: async () => ({ url: "wss://gateway.discord.gg" }),
     } as Response);
     const plugin = createDiscordGatewayPlugin({
@@ -193,5 +196,31 @@ describe("createDiscordGatewayPlugin", () => {
       }),
     );
     expect(baseRegisterClientSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and swallows registerClient errors instead of rejecting", async () => {
+    const runtime = createRuntime();
+    baseRegisterClientSpy.mockImplementation(() => {
+      throw new Error("Unexpected token < in JSON");
+    });
+
+    const plugin = createDiscordGatewayPlugin({
+      discordConfig: {},
+      runtime,
+    });
+
+    await expect(
+      (
+        plugin as unknown as {
+          registerClient: (client: { options: { token: string } }) => Promise<void>;
+        }
+      ).registerClient({
+        options: { token: "token-123" },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(runtime.error).toHaveBeenCalledWith(
+      expect.stringContaining("upstream 503/overflow response"),
+    );
   });
 });
