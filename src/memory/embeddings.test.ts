@@ -436,6 +436,42 @@ describe("local embedding normalization", () => {
     expect(embedding.every((value) => Number.isFinite(value))).toBe(true);
   });
 
+  it("processes local batch embeddings sequentially", async () => {
+    let releaseFirst: (() => void) | null = null;
+    const firstPromise = new Promise<{ vector: Float32Array }>((resolve) => {
+      releaseFirst = () => resolve({ vector: new Float32Array([1, 0, 0]) });
+    });
+    const getEmbeddingForMock = vi
+      .fn<(text: string) => Promise<{ vector: Float32Array }>>()
+      .mockImplementationOnce(async () => firstPromise)
+      .mockResolvedValueOnce({ vector: new Float32Array([0, 1, 0]) });
+
+    importNodeLlamaCppMock.mockResolvedValue({
+      getLlama: async () => ({
+        loadModel: vi.fn().mockResolvedValue({
+          createEmbeddingContext: vi.fn().mockResolvedValue({
+            getEmbeddingFor: getEmbeddingForMock,
+          }),
+        }),
+      }),
+      resolveModelFile: async () => "/fake/model.gguf",
+      LlamaLogLevel: { error: 0 },
+    });
+
+    const result = await createLocalProviderForTest();
+
+    const provider = requireProvider(result);
+    const batchPromise = provider.embedBatch(["text1", "text2"]);
+
+    await vi.waitFor(() => expect(getEmbeddingForMock).toHaveBeenCalledTimes(1));
+
+    releaseFirst?.();
+    const embeddings = await batchPromise;
+
+    expect(getEmbeddingForMock).toHaveBeenCalledTimes(2);
+    expect(embeddings).toHaveLength(2);
+  });
+
   it("normalizes batch embeddings to magnitude ~1.0", async () => {
     const unnormalizedVectors = [
       [2.35, 3.45, 0.63, 4.3],

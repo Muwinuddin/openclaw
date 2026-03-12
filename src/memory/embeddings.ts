@@ -130,12 +130,13 @@ async function createLocalEmbeddingProvider(
     },
     embedBatch: async (texts) => {
       const ctx = await ensureContext();
-      const embeddings = await Promise.all(
-        texts.map(async (text) => {
-          const embedding = await ctx.getEmbeddingFor(text);
-          return sanitizeAndNormalizeEmbedding(Array.from(embedding.vector));
-        }),
-      );
+      const embeddings: number[][] = [];
+      for (const text of texts) {
+        // node-llama-cpp embedding contexts are stateful; processing batch items
+        // serially avoids overlapping CUDA work that can crash some setups.
+        const embedding = await ctx.getEmbeddingFor(text);
+        embeddings.push(sanitizeAndNormalizeEmbedding(Array.from(embedding.vector)));
+      }
       return embeddings;
     },
   };
