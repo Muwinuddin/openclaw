@@ -1,7 +1,7 @@
 import { getChannelPlugin } from "../../channels/plugins/index.js";
 import type { ChannelId, ChannelSetupInput } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import { normalizeAccountId } from "../../routing/session-key.js";
+import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../../routing/session-key.js";
 
 type ChatChannel = ChannelId;
 
@@ -30,4 +30,48 @@ export function applyChannelAccountConfig(params: {
     return params.cfg;
   }
   return apply({ cfg: params.cfg, accountId, input: params.input });
+}
+
+export function applyChannelOAuthProfile(params: {
+  cfg: OpenClawConfig;
+  channel: ChatChannel;
+  accountId: string;
+  oauthProfile?: string;
+}): OpenClawConfig {
+  const oauthProfile = params.oauthProfile?.trim();
+  if (!oauthProfile) {
+    return params.cfg;
+  }
+
+  const accountId = normalizeAccountId(params.accountId);
+  const channels = {
+    ...params.cfg.channels,
+  } as Record<string, unknown>;
+  const existingChannel = (channels[params.channel] ?? {}) as {
+    oauthProfile?: string;
+    accounts?: Record<string, { oauthProfile?: string }>;
+  };
+
+  if (accountId === DEFAULT_ACCOUNT_ID) {
+    channels[params.channel] = {
+      ...existingChannel,
+      oauthProfile,
+    };
+  } else {
+    channels[params.channel] = {
+      ...existingChannel,
+      accounts: {
+        ...existingChannel.accounts,
+        [accountId]: {
+          ...existingChannel.accounts?.[accountId],
+          oauthProfile,
+        },
+      },
+    };
+  }
+
+  return {
+    ...params.cfg,
+    channels: channels as OpenClawConfig["channels"],
+  };
 }

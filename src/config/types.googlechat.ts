@@ -42,6 +42,8 @@ export type GoogleChatAccountConfig = {
   configWrites?: boolean;
   /** If false, do not start this Google Chat account. Default: true. */
   enabled?: boolean;
+  /** Optional auth profile id used for OAuth-capable channel integrations. */
+  oauthProfile?: string;
   /** Allow bot-authored messages to trigger replies (default: false). */
   allowBots?: boolean;
   /**
