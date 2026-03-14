@@ -67,6 +67,12 @@ export type AllowlistResolution = {
   strippedAllowlist: boolean;
 };
 
+const KNOWN_CORE_TOOL_IDS = new Set(
+  Object.values(TOOL_GROUPS)
+    .flatMap((entry) => entry)
+    .map((entry) => normalizeToolName(entry)),
+);
+
 export function collectExplicitAllowlist(policies: Array<ToolPolicyLike | undefined>): string[] {
   const entries: string[] = [];
   for (const policy of policies) {
@@ -172,7 +178,10 @@ export function stripPluginOnlyAllowlist(
     const isPluginEntry =
       entry === "group:plugins" || pluginIds.has(entry) || pluginTools.has(entry);
     const expanded = expandToolGroups([entry]);
-    const isCoreEntry = expanded.some((tool) => coreTools.has(tool));
+    const isCoreEntry =
+      coreTools.has(entry) ||
+      KNOWN_CORE_TOOL_IDS.has(entry) ||
+      expanded.some((tool) => coreTools.has(tool) || KNOWN_CORE_TOOL_IDS.has(tool));
     if (isCoreEntry) {
       hasCoreEntry = true;
     }
