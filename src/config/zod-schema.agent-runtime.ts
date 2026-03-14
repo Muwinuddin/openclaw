@@ -308,9 +308,12 @@ export const ToolsWebSearchSchema = z
 export const ToolsWebFetchSchema = z
   .object({
     enabled: z.boolean().optional(),
+    allowedDomains: z.array(z.string()).optional(),
     maxChars: z.number().int().positive().optional(),
     maxCharsCap: z.number().int().positive().optional(),
     timeoutSeconds: z.number().int().positive().optional(),
+    requestsPerMinute: z.number().int().positive().optional(),
+    requestsPerDay: z.number().int().positive().optional(),
     cacheTtlMinutes: z.number().nonnegative().optional(),
     maxRedirects: z.number().int().nonnegative().optional(),
     userAgent: z.string().optional(),
