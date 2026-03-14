@@ -17,5 +17,9 @@ export function rawDataToString(
   if (data instanceof ArrayBuffer) {
     return Buffer.from(data).toString(encoding);
   }
+  if (ArrayBuffer.isView(data)) {
+    // Some runtimes surface ws payloads as Uint8Array/DataView instead of Buffer.
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString(encoding);
+  }
   return Buffer.from(String(data)).toString(encoding);
 }
