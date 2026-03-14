@@ -239,6 +239,10 @@
   "pnpm": {
     "minimumReleaseAge": 2880,
     "overrides": {
+      "@mariozechner/pi-agent-core": "0.55.1",
+      "@mariozechner/pi-ai": "0.55.1",
+      "@mariozechner/pi-coding-agent": "0.55.1",
+      "@mariozechner/pi-tui": "0.55.1",
       "hono": "4.11.10",
       "fast-xml-parser": "5.3.6",
       "request": "npm:@cypress/request@3.0.10",
