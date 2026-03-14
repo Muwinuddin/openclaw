@@ -88,6 +88,21 @@ describe("normalizeUsage", () => {
     });
   });
 
+  it("parses numeric usage fields provided as strings", () => {
+    const usage = normalizeUsage({
+      prompt_tokens: "11" as unknown as number,
+      completion_tokens: "325" as unknown as number,
+      total_tokens: "336" as unknown as number,
+    });
+    expect(usage).toEqual({
+      input: 11,
+      output: 325,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+      total: 336,
+    });
+  });
+
   it("returns undefined when no valid fields are provided", () => {
     const usage = normalizeUsage(null);
     expect(usage).toBeUndefined();
