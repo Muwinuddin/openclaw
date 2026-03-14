@@ -173,6 +173,8 @@ export async function sendMessage(params: MessageSendParams): Promise<MessageSen
   const channel = await resolveRequiredChannel({ cfg, channel: params.channel });
   const plugin = resolveRequiredPlugin(channel, cfg);
   const deliveryMode = plugin.outbound?.deliveryMode ?? "direct";
+  const forceGatewayForBackend = params.gateway?.mode === GATEWAY_CLIENT_MODES.BACKEND;
+  const useGatewayDelivery = deliveryMode === "gateway" || forceGatewayForBackend;
   const normalizedPayloads = normalizeReplyPayloadsForDelivery([
     {
       text: params.content,
@@ -193,14 +195,14 @@ export async function sendMessage(params: MessageSendParams): Promise<MessageSen
     return {
       channel,
       to: params.to,
-      via: deliveryMode === "gateway" ? "gateway" : "direct",
+      via: useGatewayDelivery ? "gateway" : "direct",
       mediaUrl: primaryMediaUrl,
       mediaUrls: mirrorMediaUrls.length ? mirrorMediaUrls : undefined,
       dryRun: true,
     };
   }
 
-  if (deliveryMode !== "gateway") {
+  if (!useGatewayDelivery) {
     const outboundChannel = channel;
     const resolvedTarget = resolveOutboundTarget({
       channel: outboundChannel,
