@@ -82,3 +82,19 @@ export function getActiveWebListener(accountId?: string | null): ActiveWebListen
   const id = resolveWebAccountId(accountId);
   return listeners.get(id) ?? null;
 }
+
+export function clearActiveWebListener(
+  accountId: string | null | undefined,
+  listener: ActiveWebListener,
+): boolean {
+  const id = resolveWebAccountId(accountId);
+  const current = listeners.get(id);
+  if (current !== listener) {
+    return false;
+  }
+  listeners.delete(id);
+  if (id === DEFAULT_ACCOUNT_ID) {
+    _currentListener = null;
+  }
+  return true;
+}
