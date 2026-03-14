@@ -13,7 +13,7 @@ import { getChildLogger } from "../../logging.js";
 import { resolveAgentRoute } from "../../routing/resolve-route.js";
 import { defaultRuntime, type RuntimeEnv } from "../../runtime.js";
 import { resolveWhatsAppAccount } from "../accounts.js";
-import { setActiveWebListener } from "../active-listener.js";
+import { clearActiveWebListener, setActiveWebListener } from "../active-listener.js";
 import { monitorWebInbox } from "../inbound.js";
 import {
   computeBackoff,
@@ -251,7 +251,7 @@ export async function monitorWebChannel(
     });
 
     const closeListener = async () => {
-      setActiveWebListener(account.accountId, null);
+      clearActiveWebListener(account.accountId, listener);
       if (unregisterUnhandled) {
         unregisterUnhandled();
         unregisterUnhandled = null;
