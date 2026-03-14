@@ -29,7 +29,7 @@ describe("resolveSkillsPromptForRun", () => {
     expect(prompt).toContain("<available_skills>");
     expect(prompt).toContain("/app/skills/demo-skill/SKILL.md");
   });
-  it("can prefer entries over snapshot prompt when requested", () => {
+  it("can rebuild prompt from entries when snapshot prompt reuse is disabled", () => {
     const entry: SkillEntry = {
       skill: {
         name: "sandbox-skill",
@@ -45,7 +45,7 @@ describe("resolveSkillsPromptForRun", () => {
       skillsSnapshot: { prompt: "SNAPSHOT", skills: [] },
       entries: [entry],
       workspaceDir: "/tmp/openclaw",
-      preferEntriesOverSnapshotPrompt: true,
+      useSnapshotPrompt: false,
     });
     expect(prompt).toContain("<available_skills>");
     expect(prompt).toContain("/workspace/sandbox/skills/sandbox-skill/SKILL.md");

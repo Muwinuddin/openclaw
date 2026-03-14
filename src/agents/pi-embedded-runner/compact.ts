@@ -344,6 +344,7 @@ export async function compactEmbeddedPiSessionDirect(
   process.chdir(effectiveWorkspace);
   try {
     const shouldLoadSkillEntries = !params.skillsSnapshot || !params.skillsSnapshot.resolvedSkills;
+    const useSnapshotPrompt = !(sandbox?.enabled && sandbox.workspaceAccess !== "rw");
     const skillEntries = shouldLoadSkillEntries
       ? loadWorkspaceSkillEntries(effectiveWorkspace)
       : [];
@@ -361,6 +362,7 @@ export async function compactEmbeddedPiSessionDirect(
       entries: shouldLoadSkillEntries ? skillEntries : undefined,
       config: params.config,
       workspaceDir: effectiveWorkspace,
+      useSnapshotPrompt,
     });
 
     const sessionLabel = params.sessionKey ?? params.sessionId;
