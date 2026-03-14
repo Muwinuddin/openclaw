@@ -769,6 +769,7 @@ export async function startGatewayServer(
     },
     broadcast,
     context: gatewayRequestContext,
+    config: cfgAtStart,
   });
   const unregisterInProcessToolGatewayContext =
     registerInProcessToolGatewayContext(gatewayRequestContext);

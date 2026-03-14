@@ -318,6 +318,8 @@ export const FIELD_HELP: Record<string, string> = {
   "gateway.auth.token":
     "Required by default for gateway access (unless using Tailscale Serve identity); required for non-loopback binds.",
   "gateway.auth.password": "Required for Tailscale funnel.",
+  "gateway.handshakeTimeoutMs":
+    "Timeout in milliseconds before unauthenticated gateway websocket connections are closed if the initial connect handshake is not completed. Increase this on slower hosts where CLI startup can delay the first connect request.",
   "agents.defaults.sandbox.browser.network":
     "Docker network for sandbox browser containers (default: openclaw-sandbox-browser). Avoid bridge if you need stricter isolation.",
   "agents.list[].sandbox.browser.network": "Per-agent override for sandbox browser Docker network.",

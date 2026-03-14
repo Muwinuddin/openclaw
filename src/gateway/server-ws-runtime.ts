@@ -1,5 +1,6 @@
 import type { WebSocketServer } from "ws";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
+import type { OpenClawConfig } from "../config/config.js";
 import type { AuthRateLimiter } from "./auth-rate-limit.js";
 import type { ResolvedGatewayAuth } from "./auth.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./server-methods/types.js";
@@ -33,6 +34,7 @@ export function attachGatewayWsHandlers(params: {
     },
   ) => void;
   context: GatewayRequestContext;
+  config: OpenClawConfig;
 }) {
   attachGatewayWsConnectionHandler({
     wss: params.wss,
@@ -52,5 +54,6 @@ export function attachGatewayWsHandlers(params: {
     extraHandlers: params.extraHandlers,
     broadcast: params.broadcast,
     buildRequestContext: () => params.context,
+    config: params.config,
   });
 }
