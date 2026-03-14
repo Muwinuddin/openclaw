@@ -11,14 +11,19 @@ export async function buildChannelAccountSnapshot<ResolvedAccount>(params: {
   audit?: unknown;
 }): Promise<ChannelAccountSnapshot> {
   const account = params.plugin.config.resolveAccount(params.cfg, params.accountId);
+  const oauthProfile =
+    account && typeof account === "object" && "oauthProfile" in account
+      ? (account as { oauthProfile?: string }).oauthProfile
+      : undefined;
   if (params.plugin.status?.buildAccountSnapshot) {
-    return await params.plugin.status.buildAccountSnapshot({
+    const snapshot = await params.plugin.status.buildAccountSnapshot({
       account,
       cfg: params.cfg,
       runtime: params.runtime,
       probe: params.probe,
       audit: params.audit,
     });
+    return snapshot.oauthProfile ? snapshot : { ...snapshot, oauthProfile };
   }
   const enabled = params.plugin.config.isEnabled
     ? params.plugin.config.isEnabled(account, params.cfg)
@@ -32,5 +37,6 @@ export async function buildChannelAccountSnapshot<ResolvedAccount>(params: {
     accountId: params.accountId,
     enabled,
     configured,
+    oauthProfile,
   };
 }

@@ -81,6 +81,9 @@ function formatAccountLine(params: {
   if (snapshot.baseUrl) {
     bits.push(`base=${theme.muted(snapshot.baseUrl)}`);
   }
+  if (snapshot.oauthProfile) {
+    bits.push(`oauthProfile=${theme.accent(snapshot.oauthProfile)}`);
+  }
   if (typeof snapshot.enabled === "boolean") {
     bits.push(formatEnabled(snapshot.enabled));
   }

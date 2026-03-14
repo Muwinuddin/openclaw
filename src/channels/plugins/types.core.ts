@@ -20,6 +20,7 @@ export type ChannelAgentToolFactory = (params: { cfg?: OpenClawConfig }) => Chan
 
 export type ChannelSetupInput = {
   name?: string;
+  oauthProfile?: string;
   token?: string;
   tokenFile?: string;
   botToken?: string;
@@ -97,6 +98,7 @@ export type ChannelMeta = {
 export type ChannelAccountSnapshot = {
   accountId: string;
   name?: string;
+  oauthProfile?: string;
   enabled?: boolean;
   configured?: boolean;
   linked?: boolean;

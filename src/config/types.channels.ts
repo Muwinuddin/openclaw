@@ -36,6 +36,7 @@ export type ExtensionChannelConfig = {
   /** Default delivery target for CLI --deliver when no explicit --reply-to is provided. */
   defaultTo?: string;
   dmPolicy?: string;
+  oauthProfile?: string;
   groupPolicy?: GroupPolicy;
   accounts?: Record<string, unknown>;
   [key: string]: unknown;

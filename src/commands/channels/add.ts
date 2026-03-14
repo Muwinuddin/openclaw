@@ -17,7 +17,11 @@ import {
   ensureOnboardingPluginInstalled,
   reloadOnboardingPluginRegistry,
 } from "../onboarding/plugin-install.js";
-import { applyAccountName, applyChannelAccountConfig } from "./add-mutators.js";
+import {
+  applyAccountName,
+  applyChannelAccountConfig,
+  applyChannelOAuthProfile,
+} from "./add-mutators.js";
 import { channelLabel, requireValidConfig, shouldUseWizard } from "./shared.js";
 
 export type ChannelsAddOptions = {
@@ -230,6 +234,7 @@ export async function channelsAddCommand(
 
   const input: ChannelSetupInput = {
     name: opts.name,
+    oauthProfile: opts.oauthProfile,
     token: opts.token,
     tokenFile: opts.tokenFile,
     botToken: opts.botToken,
@@ -296,6 +301,13 @@ export async function channelsAddCommand(
     channel,
     accountId,
     input,
+  });
+
+  nextConfig = applyChannelOAuthProfile({
+    cfg: nextConfig,
+    channel,
+    accountId,
+    oauthProfile: opts.oauthProfile,
   });
 
   if (channel === "telegram") {

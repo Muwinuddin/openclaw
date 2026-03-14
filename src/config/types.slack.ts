@@ -98,6 +98,8 @@ export type SlackAccountConfig = {
   configWrites?: boolean;
   /** If false, do not start this Slack account. Default: true. */
   enabled?: boolean;
+  /** Optional auth profile id used for OAuth-capable channel integrations. */
+  oauthProfile?: string;
   botToken?: string;
   appToken?: string;
   userToken?: string;

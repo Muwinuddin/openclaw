@@ -56,6 +56,8 @@ export type MSTeamsConfig = {
   markdown?: MarkdownConfig;
   /** Allow channel-initiated config writes (default: true). */
   configWrites?: boolean;
+  /** Optional auth profile id used for OAuth-capable channel integrations. */
+  oauthProfile?: string;
   /** Azure Bot App ID (from Azure Bot registration). */
   appId?: string;
   /** Azure Bot App Password / Client Secret. */
