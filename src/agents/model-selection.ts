@@ -529,9 +529,15 @@ export function resolveAllowedModelRef(params: {
     cfg: params.cfg,
     defaultProvider: params.defaultProvider,
   });
+  const inferredProvider = !trimmed.includes("/")
+    ? inferUniqueProviderFromConfiguredModels({
+        cfg: params.cfg,
+        model: trimmed,
+      })
+    : undefined;
   const resolved = resolveModelRefFromString({
     raw: trimmed,
-    defaultProvider: params.defaultProvider,
+    defaultProvider: inferredProvider ?? params.defaultProvider,
     aliasIndex,
   });
   if (!resolved) {
