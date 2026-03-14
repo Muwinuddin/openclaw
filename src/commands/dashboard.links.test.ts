@@ -88,6 +88,30 @@ describe("dashboardCommand", () => {
     );
   });
 
+  it("prefers config token over OPENCLAW_GATEWAY_TOKEN", async () => {
+    const prevToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+    process.env.OPENCLAW_GATEWAY_TOKEN = "env-token";
+    try {
+      mockSnapshot("config-token");
+      copyToClipboardMock.mockResolvedValue(true);
+      detectBrowserOpenSupportMock.mockResolvedValue({ ok: true });
+      openUrlMock.mockResolvedValue(true);
+
+      await dashboardCommand(runtime);
+
+      expect(copyToClipboardMock).toHaveBeenCalledWith(
+        "http://127.0.0.1:18789/#token=config-token",
+      );
+      expect(openUrlMock).toHaveBeenCalledWith("http://127.0.0.1:18789/#token=config-token");
+    } finally {
+      if (prevToken === undefined) {
+        delete process.env.OPENCLAW_GATEWAY_TOKEN;
+      } else {
+        process.env.OPENCLAW_GATEWAY_TOKEN = prevToken;
+      }
+    }
+  });
+
   it("prints SSH hint when browser cannot open", async () => {
     mockSnapshot("shhhh");
     copyToClipboardMock.mockResolvedValue(false);
