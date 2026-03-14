@@ -53,4 +53,10 @@ describe("stripPluginOnlyAllowlist", () => {
     expect(policy.policy?.allow).toEqual(["read", "lobster"]);
     expect(policy.unknownAllowlist).toEqual(["lobster"]);
   });
+  it("keeps allowlist with known core tool ids even when unavailable in current runtime", () => {
+    const emptyPlugins: PluginToolGroups = { all: [], byPlugin: new Map() };
+    const policy = stripPluginOnlyAllowlist({ allow: ["cron"] }, emptyPlugins, new Set(["read"]));
+    expect(policy.policy?.allow).toEqual(["cron"]);
+    expect(policy.unknownAllowlist).toEqual([]);
+  });
 });
