@@ -10,6 +10,7 @@ import type { AuthRateLimiter } from "../auth-rate-limit.js";
 import type { ResolvedGatewayAuth } from "../auth.js";
 import { isLoopbackAddress } from "../net.js";
 import { getHandshakeTimeoutMs } from "../server-constants.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "../server-methods/types.js";
 import { formatError } from "../server-utils.js";
 import { logWs } from "../ws-log.js";
@@ -82,6 +83,7 @@ export function attachGatewayWsConnectionHandler(params: {
     },
   ) => void;
   buildRequestContext: () => GatewayRequestContext;
+  config: OpenClawConfig;
 }) {
   const {
     wss,
@@ -101,6 +103,7 @@ export function attachGatewayWsConnectionHandler(params: {
     extraHandlers,
     broadcast,
     buildRequestContext,
+    config,
   } = params;
 
   wss.on("connection", (socket, upgradeReq) => {
@@ -255,7 +258,7 @@ export function attachGatewayWsConnectionHandler(params: {
       close();
     });
 
-    const handshakeTimeoutMs = getHandshakeTimeoutMs();
+    const handshakeTimeoutMs = getHandshakeTimeoutMs(config);
     const handshakeTimer = setTimeout(() => {
       if (!client) {
         handshakeState = "failed";

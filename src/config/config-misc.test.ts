@@ -171,6 +171,29 @@ describe("gateway.channelHealthCheckMinutes", () => {
   });
 });
 
+describe("gateway.handshakeTimeoutMs", () => {
+  it("accepts positive timeout values", () => {
+    const res = validateConfigObject({
+      gateway: {
+        handshakeTimeoutMs: 15000,
+      },
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects zero and negative timeout values", () => {
+    const res = validateConfigObject({
+      gateway: {
+        handshakeTimeoutMs: 0,
+      },
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.issues[0]?.path).toBe("gateway.handshakeTimeoutMs");
+    }
+  });
+});
+
 describe("cron webhook schema", () => {
   it("accepts cron.webhookToken and legacy cron.webhook", () => {
     const res = OpenClawSchema.safeParse({

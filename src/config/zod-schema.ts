@@ -502,6 +502,7 @@ export const OpenClawSchema = z
     gateway: z
       .object({
         port: z.number().int().positive().optional(),
+        handshakeTimeoutMs: z.number().int().positive().optional(),
         mode: z.union([z.literal("local"), z.literal("remote")]).optional(),
         bind: z
           .union([

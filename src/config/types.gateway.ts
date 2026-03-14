@@ -318,6 +318,8 @@ export type GatewayToolsConfig = {
 export type GatewayConfig = {
   /** Single multiplexed port for Gateway WS + HTTP (default: 18789). */
   port?: number;
+  /** WebSocket connect challenge timeout in milliseconds (default: 10000). */
+  handshakeTimeoutMs?: number;
   /**
    * Explicit gateway mode. When set to "remote", local gateway start is disabled.
    * When set to "local", the CLI may start the gateway locally.
