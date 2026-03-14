@@ -521,9 +521,10 @@ export function resolveSkillsPromptForRun(params: {
   entries?: SkillEntry[];
   config?: OpenClawConfig;
   workspaceDir: string;
+  preferEntriesOverSnapshotPrompt?: boolean;
 }): string {
   const snapshotPrompt = params.skillsSnapshot?.prompt?.trim();
-  if (snapshotPrompt) {
+  if (snapshotPrompt && !params.preferEntriesOverSnapshotPrompt) {
     return snapshotPrompt;
   }
   if (params.entries && params.entries.length > 0) {
@@ -532,6 +533,9 @@ export function resolveSkillsPromptForRun(params: {
       config: params.config,
     });
     return prompt.trim() ? prompt : "";
+  }
+  if (snapshotPrompt) {
+    return snapshotPrompt;
   }
   return "";
 }
