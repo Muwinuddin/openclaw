@@ -328,6 +328,57 @@ describe("model-selection", () => {
         ref: { provider: "openai", model: "@cf/openai/gpt-oss-20b" },
       });
     });
+
+    it("infers provider for bare model names when exactly one configured provider matches", () => {
+      const cfg: OpenClawConfig = {
+        agents: {
+          defaults: {
+            model: { primary: "openai-codex/gpt-5.4" },
+            models: {
+              "openai-codex/gpt-5.4": {},
+              "cliproxy/gemini-3-flash": {},
+              "cliproxy/gemini-2.5-flash": {},
+            },
+          },
+        },
+      } as OpenClawConfig;
+
+      const result = resolveAllowedModelRef({
+        cfg,
+        catalog: [],
+        raw: "gemini-3-flash",
+        defaultProvider: "openai-codex",
+      });
+
+      expect(result).toEqual({
+        key: "cliproxy/gemini-3-flash",
+        ref: { provider: "cliproxy", model: "gemini-3-flash" },
+      });
+    });
+
+    it("keeps default provider for ambiguous bare model names", () => {
+      const cfg: OpenClawConfig = {
+        agents: {
+          defaults: {
+            model: { primary: "openai-codex/gpt-5.4" },
+            models: {
+              "openai-codex/gpt-5.4": {},
+              "cliproxy/gemini-3-flash": {},
+              "atproxy/gemini-3-flash": {},
+            },
+          },
+        },
+      } as OpenClawConfig;
+
+      const result = resolveAllowedModelRef({
+        cfg,
+        catalog: [],
+        raw: "gemini-3-flash",
+        defaultProvider: "openai-codex",
+      });
+
+      expect(result).toEqual({ error: "model not allowed: openai-codex/gemini-3-flash" });
+    });
   });
 
   describe("resolveModelRefFromString", () => {
