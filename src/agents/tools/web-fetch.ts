@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
+import { createFixedWindowRateLimiter } from "../../infra/fixed-window-rate-limit.js";
 import { SsrFBlockedError } from "../../infra/net/ssrf.js";
 import { logDebug } from "../../logger.js";
 import { wrapExternalContent, wrapWebContent } from "../../security/external-content.js";
@@ -45,6 +46,15 @@ const DEFAULT_FETCH_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 const FETCH_CACHE = new Map<string, CacheEntry<Record<string, unknown>>>();
+
+const FETCH_RATE_LIMITERS_PER_MINUTE = new Map<
+  string,
+  ReturnType<typeof createFixedWindowRateLimiter>
+>();
+const FETCH_RATE_LIMITERS_PER_DAY = new Map<
+  string,
+  ReturnType<typeof createFixedWindowRateLimiter>
+>();
 
 const WebFetchSchema = Type.Object({
   url: Type.String({ description: "HTTP or HTTPS URL to fetch." }),
@@ -187,6 +197,71 @@ function resolveFirecrawlMaxAgeMsOrDefault(firecrawl?: FirecrawlFetchConfig): nu
     return resolved;
   }
   return DEFAULT_FIRECRAWL_MAX_AGE_MS;
+}
+
+function normalizeAllowedDomain(value: string): string | null {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^\.+|\.+$/g, "");
+  if (!normalized) {
+    return null;
+  }
+  // Keep host-only allowlist entries conservative.
+  if (normalized.includes(":") || normalized.includes("/") || normalized.includes("?")) {
+    return null;
+  }
+  return normalized;
+}
+
+function resolveAllowedDomains(fetch?: WebFetchConfig): string[] {
+  if (!Array.isArray(fetch?.allowedDomains)) {
+    return [];
+  }
+  const normalized = fetch.allowedDomains
+    .map((item) => (typeof item === "string" ? normalizeAllowedDomain(item) : null))
+    .filter((item): item is string => Boolean(item));
+  return Array.from(new Set(normalized));
+}
+
+function isAllowedDomain(hostname: string, allowedDomains: string[]): boolean {
+  if (allowedDomains.length === 0) {
+    return true;
+  }
+  const normalizedHostname = normalizeAllowedDomain(hostname);
+  if (!normalizedHostname) {
+    return false;
+  }
+  return allowedDomains.some(
+    (allowed) => normalizedHostname === allowed || normalizedHostname.endsWith(`.${allowed}`),
+  );
+}
+
+function resolveRequestBudget(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const parsed = Math.floor(value);
+  return parsed > 0 ? parsed : undefined;
+}
+
+function enforceRateLimit(params: { budget?: number; scope: "minute" | "day"; key: string }): void {
+  if (!params.budget) {
+    return;
+  }
+  const map =
+    params.scope === "minute" ? FETCH_RATE_LIMITERS_PER_MINUTE : FETCH_RATE_LIMITERS_PER_DAY;
+  const windowMs = params.scope === "minute" ? 60_000 : 86_400_000;
+  let limiter = map.get(params.key);
+  if (!limiter) {
+    limiter = createFixedWindowRateLimiter({ maxRequests: params.budget, windowMs });
+    map.set(params.key, limiter);
+  }
+  const result = limiter.consume();
+  if (!result.allowed) {
+    const retrySeconds = Math.max(1, Math.ceil(result.retryAfterMs / 1000));
+    throw new Error(`Web fetch rate limit exceeded (${params.scope}). Retry in ${retrySeconds}s.`);
+  }
 }
 
 function resolveMaxChars(value: unknown, fallback: number, cap: number): number {
@@ -438,6 +513,9 @@ type FirecrawlRuntimeParams = {
 
 type WebFetchRuntimeParams = FirecrawlRuntimeParams & {
   url: string;
+  allowedDomains: string[];
+  requestsPerMinute?: number;
+  requestsPerDay?: number;
   extractMode: ExtractMode;
   maxChars: number;
   maxResponseBytes: number;
@@ -517,6 +595,13 @@ async function runWebFetch(params: WebFetchRuntimeParams): Promise<Record<string
   if (!["http:", "https:"].includes(parsedUrl.protocol)) {
     throw new Error("Invalid URL: must be http or https");
   }
+
+  if (!isAllowedDomain(parsedUrl.hostname, params.allowedDomains)) {
+    throw new Error("Domain not allowed by tools.web.fetch.allowedDomains");
+  }
+
+  enforceRateLimit({ budget: params.requestsPerMinute, scope: "minute", key: "web_fetch" });
+  enforceRateLimit({ budget: params.requestsPerDay, scope: "day", key: "web_fetch" });
 
   const start = Date.now();
   let res: Response;
@@ -728,6 +813,9 @@ export function createWebFetchTool(options?: {
     firecrawl?.timeoutSeconds ?? fetch?.timeoutSeconds,
     DEFAULT_TIMEOUT_SECONDS,
   );
+  const allowedDomains = resolveAllowedDomains(fetch);
+  const requestsPerMinute = resolveRequestBudget(fetch?.requestsPerMinute);
+  const requestsPerDay = resolveRequestBudget(fetch?.requestsPerDay);
   const userAgent =
     (fetch && "userAgent" in fetch && typeof fetch.userAgent === "string" && fetch.userAgent) ||
     DEFAULT_FETCH_USER_AGENT;
@@ -746,6 +834,9 @@ export function createWebFetchTool(options?: {
       const maxCharsCap = resolveFetchMaxCharsCap(fetch);
       const result = await runWebFetch({
         url,
+        allowedDomains,
+        requestsPerMinute,
+        requestsPerDay,
         extractMode,
         maxChars: resolveMaxChars(
           maxChars ?? fetch?.maxChars,

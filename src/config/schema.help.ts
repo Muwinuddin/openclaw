@@ -609,10 +609,14 @@ export const FIELD_HELP: Record<string, string> = {
   "tools.web.search.perplexity.model":
     'Perplexity model override (default: "perplexity/sonar-pro").',
   "tools.web.fetch.enabled": "Enable the web_fetch tool (lightweight HTTP fetch).",
+  "tools.web.fetch.allowedDomains":
+    "Optional domain allowlist for web_fetch (exact domains or parent-domain suffix matches).",
   "tools.web.fetch.maxChars": "Max characters returned by web_fetch (truncated).",
   "tools.web.fetch.maxCharsCap":
     "Hard cap for web_fetch maxChars (applies to config and tool calls).",
   "tools.web.fetch.timeoutSeconds": "Timeout in seconds for web_fetch requests.",
+  "tools.web.fetch.requestsPerMinute": "Optional request budget per minute for web_fetch.",
+  "tools.web.fetch.requestsPerDay": "Optional request budget per day for web_fetch.",
   "tools.web.fetch.cacheTtlMinutes": "Cache TTL in minutes for web_fetch results.",
   "tools.web.fetch.maxRedirects": "Maximum redirects allowed for web_fetch (default: 3).",
   "tools.web.fetch.userAgent": "Override User-Agent header for web_fetch requests.",
