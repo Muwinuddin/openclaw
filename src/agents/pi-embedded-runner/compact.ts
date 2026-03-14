@@ -361,6 +361,7 @@ export async function compactEmbeddedPiSessionDirect(
       entries: shouldLoadSkillEntries ? skillEntries : undefined,
       config: params.config,
       workspaceDir: effectiveWorkspace,
+      useSnapshotPrompt: !(sandbox?.enabled && sandbox.workspaceAccess !== "rw"),
     });
 
     const sessionLabel = params.sessionKey ?? params.sessionId;
