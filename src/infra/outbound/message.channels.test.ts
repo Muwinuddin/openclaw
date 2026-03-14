@@ -223,6 +223,41 @@ describe("gateway url override hardening", () => {
     };
     expect(call.params?.agentId).toBe("work");
   });
+
+  it("uses gateway delivery for backend callers even when plugin defaults to direct", async () => {
+    setRegistry(
+      createTestRegistry([
+        {
+          pluginId: "mattermost",
+          source: "test",
+          plugin: createMattermostLikePlugin({ onSendText: () => {} }),
+        },
+      ]),
+    );
+
+    callGatewayMock.mockResolvedValueOnce({ messageId: "m-backend" });
+    const result = await sendMessage({
+      cfg: {},
+      to: "channel:town-square",
+      content: "hi",
+      channel: "mattermost",
+      gateway: {
+        token: "t",
+        timeoutMs: 5000,
+        clientName: GATEWAY_CLIENT_NAMES.GATEWAY_CLIENT,
+        clientDisplayName: "agent",
+        mode: GATEWAY_CLIENT_MODES.BACKEND,
+      },
+    });
+
+    expect(callGatewayMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "send",
+        params: expect.objectContaining({ channel: "mattermost" }),
+      }),
+    );
+    expect(result.via).toBe("gateway");
+  });
 });
 
 const emptyRegistry = createTestRegistry([]);
