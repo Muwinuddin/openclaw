@@ -23,16 +23,31 @@ export const __setMaxChatHistoryMessagesBytesForTest = (value?: number) => {
   }
 };
 
-export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
+export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 20_000;
+
+function parseHandshakeTimeout(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return undefined;
+}
 
 export const getHandshakeTimeoutMs = (cfg?: OpenClawConfig) => {
   if (cfg?.gateway?.handshakeTimeoutMs && cfg.gateway.handshakeTimeoutMs > 0) {
     return cfg.gateway.handshakeTimeoutMs;
   }
+  const envTimeout = parseHandshakeTimeout(process.env.OPENCLAW_HANDSHAKE_TIMEOUT_MS);
+  if (envTimeout) {
+    return envTimeout;
+  }
   if (process.env.VITEST && process.env.OPENCLAW_TEST_HANDSHAKE_TIMEOUT_MS) {
-    const parsed = Number(process.env.OPENCLAW_TEST_HANDSHAKE_TIMEOUT_MS);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
+    const testTimeout = parseHandshakeTimeout(process.env.OPENCLAW_TEST_HANDSHAKE_TIMEOUT_MS);
+    if (testTimeout) {
+      return testTimeout;
     }
   }
   return DEFAULT_HANDSHAKE_TIMEOUT_MS;
