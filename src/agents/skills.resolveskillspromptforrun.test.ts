@@ -29,4 +29,26 @@ describe("resolveSkillsPromptForRun", () => {
     expect(prompt).toContain("<available_skills>");
     expect(prompt).toContain("/app/skills/demo-skill/SKILL.md");
   });
+  it("can prefer entries over snapshot prompt when requested", () => {
+    const entry: SkillEntry = {
+      skill: {
+        name: "sandbox-skill",
+        description: "Sandbox",
+        filePath: "/workspace/sandbox/skills/sandbox-skill/SKILL.md",
+        baseDir: "/workspace/sandbox/skills/sandbox-skill",
+        source: "openclaw-workspace",
+        disableModelInvocation: false,
+      },
+      frontmatter: {},
+    };
+    const prompt = resolveSkillsPromptForRun({
+      skillsSnapshot: { prompt: "SNAPSHOT", skills: [] },
+      entries: [entry],
+      workspaceDir: "/tmp/openclaw",
+      preferEntriesOverSnapshotPrompt: true,
+    });
+    expect(prompt).toContain("<available_skills>");
+    expect(prompt).toContain("/workspace/sandbox/skills/sandbox-skill/SKILL.md");
+    expect(prompt).not.toContain("SNAPSHOT");
+  });
 });
