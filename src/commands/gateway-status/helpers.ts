@@ -125,7 +125,9 @@ export function resolveTargets(cfg: OpenClawConfig, explicitUrl?: string): Gatew
 
 export function resolveProbeBudgetMs(overallMs: number, kind: TargetKind): number {
   if (kind === "localLoopback") {
-    return Math.min(800, overallMs);
+    // Local loopback probes should use the caller's budget (up to 4s) so
+    // we don't report false negatives while still keeping a bounded timeout.
+    return Math.min(4000, overallMs);
   }
   if (kind === "sshTunnel") {
     return Math.min(2000, overallMs);
