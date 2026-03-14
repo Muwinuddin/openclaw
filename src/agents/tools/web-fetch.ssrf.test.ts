@@ -39,6 +39,11 @@ function setMockFetch(
 
 async function createWebFetchToolForTest(params?: {
   firecrawl?: { enabled?: boolean; apiKey?: string };
+  fetch?: {
+    allowedDomains?: string[];
+    requestsPerMinute?: number;
+    requestsPerDay?: number;
+  };
 }) {
   const { createWebFetchTool } = await import("./web-tools.js");
   return createWebFetchTool({
@@ -48,6 +53,7 @@ async function createWebFetchToolForTest(params?: {
           fetch: {
             cacheTtlMinutes: 0,
             firecrawl: params?.firecrawl ?? { enabled: false },
+            ...params?.fetch,
           },
         },
       },
@@ -141,5 +147,34 @@ describe("web_fetch SSRF protection", () => {
       status: 200,
       extractor: "raw",
     });
+  });
+  it("enforces allowedDomains when configured", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+
+    setMockFetch().mockResolvedValue(textResponse("ok"));
+    const tool = await createWebFetchToolForTest({
+      fetch: { allowedDomains: ["example.com"] },
+    });
+
+    await expect(
+      tool?.execute?.("call", { url: "https://example.com/page" }),
+    ).resolves.toBeDefined();
+    await expectBlockedUrl(tool, "https://not-allowed.test", /Domain not allowed/i);
+  });
+
+  it("enforces requestsPerMinute budgets", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+
+    setMockFetch().mockResolvedValue(textResponse("ok"));
+    const tool = await createWebFetchToolForTest({
+      fetch: { requestsPerMinute: 1 },
+    });
+
+    await expect(
+      tool?.execute?.("call", { url: "https://example.com/first" }),
+    ).resolves.toBeDefined();
+    await expect(tool?.execute?.("call", { url: "https://example.com/second" })).rejects.toThrow(
+      /rate limit exceeded \(minute\)/i,
+    );
   });
 });

@@ -478,12 +478,18 @@ export type ToolsConfig = {
     fetch?: {
       /** Enable web fetch tool (default: true). */
       enabled?: boolean;
+      /** Optional domain allowlist (exact domain or parent-domain suffix). */
+      allowedDomains?: string[];
       /** Max characters to return from fetched content. */
       maxChars?: number;
       /** Hard cap for maxChars (tool or config), defaults to 50000. */
       maxCharsCap?: number;
       /** Timeout in seconds for fetch requests. */
       timeoutSeconds?: number;
+      /** Optional request budget per minute for web_fetch. */
+      requestsPerMinute?: number;
+      /** Optional request budget per day for web_fetch. */
+      requestsPerDay?: number;
       /** Cache TTL in minutes for fetched content. */
       cacheTtlMinutes?: number;
       /** Maximum number of redirects to follow (default: 3). */
