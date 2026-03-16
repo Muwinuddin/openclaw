@@ -4,6 +4,12 @@ export type BrowserActionTabResult = {
   ok: true;
   targetId: string;
   url?: string;
+  download?: {
+    url: string;
+    suggestedFilename: string;
+    path: string;
+    triggered: true;
+  };
 };
 
 export type BrowserActionPathResult = {
