@@ -84,7 +84,8 @@ describe("buildStatusMessage", () => {
     expect(normalized).toContain("Session: agent:main:main");
     expect(normalized).toContain("updated 10m ago");
     expect(normalized).toContain("Runtime: direct");
-    expect(normalized).toContain("Think: medium");
+    expect(normalized).toContain("Effort: medium");
+    expect(normalized).toContain("Reasoning: off");
     expect(normalized).not.toContain("verbose");
     expect(normalized).toContain("elevated");
     expect(normalized).toContain("Queue: collect");
