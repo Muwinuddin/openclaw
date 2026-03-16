@@ -121,6 +121,17 @@ async function saveDownloadPayload(download: DownloadPayload, outPath: string) {
   };
 }
 
+export async function savePlaywrightDownload(opts: {
+  download: DownloadPayload;
+  outPath?: string;
+}): Promise<{
+  url: string;
+  suggestedFilename: string;
+  path: string;
+}> {
+  return await saveDownloadPayload(opts.download, opts.outPath ?? "");
+}
+
 async function awaitDownloadPayload(params: {
   waiter: ReturnType<typeof createPageDownloadWaiter>;
   state: ReturnType<typeof ensurePageState>;

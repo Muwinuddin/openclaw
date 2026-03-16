@@ -30,8 +30,14 @@ describe("pw-tools-core.snapshot navigate guard", () => {
 
   it("navigates valid network URLs with clamped timeout", async () => {
     const goto = vi.fn(async () => {});
+    const waitForEvent = vi.fn(async () => ({
+      url: () => "https://example.com/download.bin",
+      suggestedFilename: () => "download.bin",
+      saveAs: vi.fn(async () => {}),
+    }));
     setPwToolsCoreCurrentPage({
       goto,
+      waitForEvent,
       url: vi.fn(() => "https://example.com"),
     });
 
@@ -43,5 +49,43 @@ describe("pw-tools-core.snapshot navigate guard", () => {
 
     expect(goto).toHaveBeenCalledWith("https://example.com", { timeout: 1000 });
     expect(result.url).toBe("https://example.com");
+    expect(result.download).toEqual(
+      expect.objectContaining({
+        url: "https://example.com/download.bin",
+        suggestedFilename: "download.bin",
+        triggered: true,
+      }),
+    );
+    expect(result.download?.path).toMatch(/downloads/);
+  });
+
+  it("suppresses Playwright download-starting navigation errors", async () => {
+    const goto = vi.fn(async () => {
+      throw new Error("net::ERR_ABORTED; maybe frame was detached? Download is starting");
+    });
+    const waitForEvent = vi.fn(async () => ({
+      url: () => "https://example.com/report.csv",
+      suggestedFilename: () => "report.csv",
+      saveAs: vi.fn(async () => {}),
+    }));
+    setPwToolsCoreCurrentPage({
+      goto,
+      waitForEvent,
+      url: vi.fn(() => "about:blank"),
+    });
+
+    const result = await mod.navigateViaPlaywright({
+      cdpUrl: "http://127.0.0.1:18792",
+      url: "https://example.com/export",
+    });
+
+    expect(result.url).toBe("about:blank");
+    expect(result.download).toEqual(
+      expect.objectContaining({
+        url: "https://example.com/report.csv",
+        suggestedFilename: "report.csv",
+        triggered: true,
+      }),
+    );
   });
 });

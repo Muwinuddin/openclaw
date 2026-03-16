@@ -18,6 +18,7 @@ import {
   storeRoleRefsForTarget,
   type WithSnapshotForAI,
 } from "./pw-session.js";
+import { savePlaywrightDownload } from "./pw-tools-core.downloads.js";
 
 export async function snapshotAriaViaPlaywright(opts: {
   cdpUrl: string;
@@ -165,7 +166,15 @@ export async function navigateViaPlaywright(opts: {
   url: string;
   timeoutMs?: number;
   ssrfPolicy?: SsrFPolicy;
-}): Promise<{ url: string }> {
+}): Promise<{
+  url: string;
+  download?: {
+    url: string;
+    suggestedFilename: string;
+    path: string;
+    triggered: true;
+  };
+}> {
   const url = String(opts.url ?? "").trim();
   if (!url) {
     throw new Error("url is required");
@@ -176,15 +185,48 @@ export async function navigateViaPlaywright(opts: {
   });
   const page = await getPageForTargetId(opts);
   ensurePageState(page);
-  await page.goto(url, {
-    timeout: Math.max(1000, Math.min(120_000, opts.timeoutMs ?? 20_000)),
-  });
+  const timeoutMs = Math.max(1000, Math.min(120_000, opts.timeoutMs ?? 20_000));
+
+  const downloadPromise = page
+    .waitForEvent("download", { timeout: timeoutMs })
+    .then(async (download) => {
+      const saved = await savePlaywrightDownload({ download });
+      return {
+        ...saved,
+        triggered: true as const,
+      };
+    })
+    .catch(() => null);
+
+  let downloadResult:
+    | {
+        url: string;
+        suggestedFilename: string;
+        path: string;
+        triggered: true;
+      }
+    | undefined;
+
+  try {
+    await page.goto(url, { timeout: timeoutMs });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.includes("Download is starting")) {
+      throw err;
+    }
+  }
+
+  const maybeDownload = await downloadPromise;
+  if (maybeDownload) {
+    downloadResult = maybeDownload;
+  }
+
   const finalUrl = page.url();
   await assertBrowserNavigationResultAllowed({
     url: finalUrl,
     ...withBrowserNavigationPolicy(opts.ssrfPolicy),
   });
-  return { url: finalUrl };
+  return downloadResult ? { url: finalUrl, download: downloadResult } : { url: finalUrl };
 }
 
 export async function resizeViewportViaPlaywright(opts: {
