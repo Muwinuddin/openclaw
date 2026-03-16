@@ -191,6 +191,46 @@ describe("ensureSandboxContainer config-hash recreation", () => {
     );
   });
 
+  it("recreates session-scoped containers immediately even when recently used", async () => {
+    const workspaceDir = "/tmp/workspace";
+    const cfg = { ...createSandboxConfig(["1.1.1.1"]), scope: "session" as const };
+    const expectedHash = computeSandboxConfigHash({
+      docker: cfg.docker,
+      workspaceAccess: cfg.workspaceAccess,
+      workspaceDir,
+      agentWorkspaceDir: workspaceDir,
+    });
+
+    spawnState.inspectRunning = true;
+    spawnState.labelHash = "stale-hash";
+    const now = Date.now();
+    registryMocks.readRegistry.mockResolvedValue({
+      entries: [
+        {
+          containerName: "oc-test-agent-main-session-1",
+          sessionKey: "agent:main:session-1",
+          createdAtMs: now - 1_000,
+          lastUsedAtMs: now,
+          image: cfg.docker.image,
+          configHash: "stale-hash",
+        },
+      ],
+    });
+
+    await ensureSandboxContainer({
+      sessionKey: "agent:main:session-1",
+      workspaceDir,
+      agentWorkspaceDir: workspaceDir,
+      cfg,
+    });
+
+    const dockerCalls = spawnState.calls.filter((call) => call.command === "docker");
+    expect(dockerCalls.some((call) => call.args[0] === "rm" && call.args[1] === "-f")).toBe(true);
+    const createCall = dockerCalls.find((call) => call.args[0] === "create");
+    expect(createCall).toBeDefined();
+    expect(createCall?.args).toContain(`openclaw.configHash=${expectedHash}`);
+  });
+
   it("applies custom binds after workspace mounts so overlapping binds can override", async () => {
     const workspaceDir = "/tmp/workspace";
     const cfg = createSandboxConfig(
