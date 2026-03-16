@@ -474,7 +474,10 @@ export async function ensureSandboxContainer(params: {
       const isHot =
         running &&
         (typeof lastUsedAtMs !== "number" || now - lastUsedAtMs < HOT_CONTAINER_WINDOW_MS);
-      if (isHot) {
+      // Session-scoped sandboxes are expected to mirror per-session config exactly.
+      // Reuse of a hot-but-stale container can silently preserve unsafe mounts,
+      // so force recreation when the hash drifts.
+      if (isHot && params.cfg.scope !== "session") {
         const hint = formatSandboxRecreateHint({ scope: params.cfg.scope, sessionKey: scopeKey });
         defaultRuntime.log(
           `Sandbox config changed for ${containerName} (recently used). Recreate to apply: ${hint}`,
