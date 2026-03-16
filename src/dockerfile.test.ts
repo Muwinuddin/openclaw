@@ -20,4 +20,14 @@ describe("Dockerfile", () => {
     );
     expect(dockerfile).toContain("apt-get install -y --no-install-recommends xvfb");
   });
+
+  it("mirrors built runtime modules into /app/src for extension relative imports", async () => {
+    const dockerfile = await readFile(dockerfilePath, "utf8");
+    const buildIndex = dockerfile.indexOf("RUN pnpm build");
+    const mirrorIndex = dockerfile.indexOf("RUN mkdir -p /app/src && cp -R /app/dist/. /app/src/");
+
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(mirrorIndex).toBeGreaterThan(-1);
+    expect(mirrorIndex).toBeGreaterThan(buildIndex);
+  });
 });

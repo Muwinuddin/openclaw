@@ -47,6 +47,10 @@ RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
 USER node
 COPY --chown=node:node . .
 RUN pnpm build
+# Some bundled extensions still resolve internal OpenClaw modules through
+# ../../../src/*.js paths. Mirror compiled JS into /app/src so those imports
+# continue to resolve in Docker runtime images.
+RUN mkdir -p /app/src && cp -R /app/dist/. /app/src/
 # Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
