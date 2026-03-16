@@ -857,6 +857,12 @@ export const FIELD_HELP: Record<string, string> = {
     "Display name shown for the assistant in UI views, chat chrome, and status contexts. Keep this stable so operators can reliably identify which assistant persona is active.",
   "ui.assistant.avatar":
     "Assistant avatar image source used in UI surfaces (URL, path, or data URI depending on runtime support). Use trusted assets and consistent branding dimensions for clean rendering.",
+  "ui.user":
+    "User display identity settings for Control UI/WebChat message rendering. Use this to personalize how local user messages appear in chat timelines.",
+  "ui.user.displayName":
+    "Display name shown for local user messages in Control UI/WebChat. Keep this short and recognizable so user/assistant turns are easy to scan.",
+  "ui.user.avatar":
+    "User avatar shown for local user messages in Control UI/WebChat (emoji, short text, URL, or data URI). Use trusted assets and consistent dimensions for clean rendering.",
   plugins:
     "Plugin system controls for enabling extensions, constraining load scope, configuring entries, and tracking installs. Keep plugin policy explicit and least-privilege in production environments.",
   "plugins.enabled":

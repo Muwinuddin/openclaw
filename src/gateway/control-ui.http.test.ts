@@ -27,6 +27,8 @@ describe("handleControlUiHttpRequest", () => {
       assistantName: string;
       assistantAvatar: string;
       assistantAgentId: string;
+      userDisplayName: string;
+      userAvatar: string | null;
     };
   }
 
@@ -167,6 +169,8 @@ describe("handleControlUiHttpRequest", () => {
         expect(parsed.assistantName).toBe("</script><script>alert(1)//");
         expect(parsed.assistantAvatar).toBe("/avatar/main");
         expect(parsed.assistantAgentId).toBe("main");
+        expect(parsed.userDisplayName).toBe("You");
+        expect(parsed.userAvatar).toBeNull();
       },
     });
   });
@@ -183,7 +187,10 @@ describe("handleControlUiHttpRequest", () => {
             root: { kind: "resolved", path: tmp },
             config: {
               agents: { defaults: { workspace: tmp } },
-              ui: { assistant: { name: "Ops", avatar: "ops.png" } },
+              ui: {
+                assistant: { name: "Ops", avatar: "ops.png" },
+                user: { displayName: "Boss", avatar: "🙂" },
+              },
             },
           },
         );
@@ -193,6 +200,8 @@ describe("handleControlUiHttpRequest", () => {
         expect(parsed.assistantName).toBe("Ops");
         expect(parsed.assistantAvatar).toBe("/openclaw/avatar/main");
         expect(parsed.assistantAgentId).toBe("main");
+        expect(parsed.userDisplayName).toBe("Boss");
+        expect(parsed.userAvatar).toBe("🙂");
       },
     });
   });

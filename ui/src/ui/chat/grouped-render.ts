@@ -112,13 +112,16 @@ export function renderMessageGroup(
     showReasoning: boolean;
     assistantName?: string;
     assistantAvatar?: string | null;
+    userDisplayName?: string;
+    userAvatar?: string | null;
   },
 ) {
   const normalizedRole = normalizeRoleForGrouping(group.role);
   const assistantName = opts.assistantName ?? "Assistant";
+  const userDisplayName = opts.userDisplayName?.trim() || "You";
   const who =
     normalizedRole === "user"
-      ? "You"
+      ? userDisplayName
       : normalizedRole === "assistant"
         ? assistantName
         : normalizedRole;
@@ -134,6 +137,7 @@ export function renderMessageGroup(
       ${renderAvatar(group.role, {
         name: assistantName,
         avatar: opts.assistantAvatar ?? null,
+        userAvatar: opts.userAvatar ?? null,
       })}
       <div class="chat-group-messages">
         ${group.messages.map((item, index) =>
@@ -155,10 +159,14 @@ export function renderMessageGroup(
   `;
 }
 
-function renderAvatar(role: string, assistant?: Pick<AssistantIdentity, "name" | "avatar">) {
+function renderAvatar(
+  role: string,
+  assistant?: Pick<AssistantIdentity, "name" | "avatar"> & { userAvatar?: string | null },
+) {
   const normalized = normalizeRoleForGrouping(role);
   const assistantName = assistant?.name?.trim() || "Assistant";
   const assistantAvatar = assistant?.avatar?.trim() || "";
+  const userAvatar = assistant?.userAvatar?.trim() || "";
   const initial =
     normalized === "user"
       ? "U"
@@ -175,6 +183,13 @@ function renderAvatar(role: string, assistant?: Pick<AssistantIdentity, "name" |
         : normalized === "tool"
           ? "tool"
           : "other";
+
+  if (userAvatar && normalized === "user") {
+    if (isAvatarUrl(userAvatar)) {
+      return html`<img class="chat-avatar ${className}" src="${userAvatar}" alt="User" />`;
+    }
+    return html`<div class="chat-avatar ${className}">${userAvatar}</div>`;
+  }
 
   if (assistantAvatar && normalized === "assistant") {
     if (isAvatarUrl(assistantAvatar)) {
