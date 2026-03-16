@@ -553,9 +553,9 @@ export function buildStatusMessage(args: StatusArgs): string {
       : null;
   const optionParts = [
     `Runtime: ${runtime.label}`,
-    `Think: ${thinkLevel}`,
+    `Effort: ${thinkLevel}`,
     verboseLabel,
-    reasoningLevel !== "off" ? `Reasoning: ${reasoningLevel}` : null,
+    `Reasoning: ${reasoningLevel}`,
     elevatedLabel,
   ];
   const optionsLine = optionParts.filter(Boolean).join(" · ");
