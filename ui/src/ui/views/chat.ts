@@ -62,6 +62,8 @@ export type ChatProps = {
   splitRatio?: number;
   assistantName: string;
   assistantAvatar: string | null;
+  userDisplayName: string;
+  userAvatar: string | null;
   // Image attachments
   attachments?: ChatAttachment[];
   onAttachmentsChange?: (attachments: ChatAttachment[]) => void;
@@ -305,6 +307,8 @@ export function renderChat(props: ChatProps) {
               showReasoning,
               assistantName: props.assistantName,
               assistantAvatar: assistantIdentity.avatar,
+              userDisplayName: props.userDisplayName,
+              userAvatar: props.userAvatar,
             });
           }
 

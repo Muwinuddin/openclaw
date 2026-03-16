@@ -13,6 +13,8 @@ describe("loadControlUiBootstrapConfig", () => {
         assistantName: "Ops",
         assistantAvatar: "O",
         assistantAgentId: "main",
+        userDisplayName: "Boss",
+        userAvatar: "🙂",
       }),
     });
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
@@ -22,6 +24,8 @@ describe("loadControlUiBootstrapConfig", () => {
       assistantName: "Assistant",
       assistantAvatar: null,
       assistantAgentId: null,
+      userDisplayName: "You",
+      userAvatar: null,
     };
 
     await loadControlUiBootstrapConfig(state);
@@ -33,6 +37,8 @@ describe("loadControlUiBootstrapConfig", () => {
     expect(state.assistantName).toBe("Ops");
     expect(state.assistantAvatar).toBe("O");
     expect(state.assistantAgentId).toBe("main");
+    expect(state.userDisplayName).toBe("Boss");
+    expect(state.userAvatar).toBe("🙂");
 
     vi.unstubAllGlobals();
   });
@@ -46,6 +52,8 @@ describe("loadControlUiBootstrapConfig", () => {
       assistantName: "Assistant",
       assistantAvatar: null,
       assistantAgentId: null,
+      userDisplayName: "You",
+      userAvatar: null,
     };
 
     await loadControlUiBootstrapConfig(state);
@@ -55,6 +63,7 @@ describe("loadControlUiBootstrapConfig", () => {
       expect.objectContaining({ method: "GET" }),
     );
     expect(state.assistantName).toBe("Assistant");
+    expect(state.userDisplayName).toBe("You");
 
     vi.unstubAllGlobals();
   });
@@ -68,6 +77,8 @@ describe("loadControlUiBootstrapConfig", () => {
       assistantName: "Assistant",
       assistantAvatar: null,
       assistantAgentId: null,
+      userDisplayName: "You",
+      userAvatar: null,
     };
 
     await loadControlUiBootstrapConfig(state);

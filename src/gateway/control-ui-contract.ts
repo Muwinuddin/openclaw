@@ -5,4 +5,6 @@ export type ControlUiBootstrapConfig = {
   assistantName: string;
   assistantAvatar: string;
   assistantAgentId: string;
+  userDisplayName: string;
+  userAvatar: string | null;
 };

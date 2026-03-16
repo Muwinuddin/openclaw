@@ -21,6 +21,8 @@ import {
 } from "./control-ui-shared.js";
 
 const ROOT_PREFIX = "/";
+const MAX_USER_DISPLAY_NAME = 50;
+const MAX_USER_AVATAR = 200;
 
 export type ControlUiRequestOptions = {
   basePath?: string;
@@ -113,6 +115,30 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
 
 function isValidAgentId(agentId: string): boolean {
   return /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(agentId);
+}
+
+function coerceUiIdentityValue(value: string | undefined, maxLength: number): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  return trimmed.slice(0, maxLength);
+}
+
+function resolveControlUiUserIdentity(config?: OpenClawConfig): {
+  displayName: string;
+  avatar: string | null;
+} {
+  const displayName =
+    coerceUiIdentityValue(config?.ui?.user?.displayName, MAX_USER_DISPLAY_NAME) ?? "You";
+  const avatar = coerceUiIdentityValue(config?.ui?.user?.avatar, MAX_USER_AVATAR) ?? null;
+  return { displayName, avatar };
 }
 
 export function handleControlUiAvatarRequest(
@@ -322,6 +348,7 @@ export function handleControlUiHttpRequest(
       agentId: identity.agentId,
       basePath,
     });
+    const userIdentity = resolveControlUiUserIdentity(config);
     if (req.method === "HEAD") {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -334,6 +361,8 @@ export function handleControlUiHttpRequest(
       assistantName: identity.name,
       assistantAvatar: avatarValue ?? identity.avatar,
       assistantAgentId: identity.agentId,
+      userDisplayName: userIdentity.displayName,
+      userAvatar: userIdentity.avatar,
     } satisfies ControlUiBootstrapConfig);
     return true;
   }
